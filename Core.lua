@@ -1,5 +1,37 @@
 local ADDON_NAME, ns = ...
 
+-- Compat shims: TBC Classic Anniversary 2.5.5 moved several globals into namespaces.
+-- Keep both code paths so the addon works on old 2.5.4 builds and on 2.5.5+.
+local function _getAddOnMetadata(name, field)
+    if C_AddOns and C_AddOns.GetAddOnMetadata then
+        return C_AddOns.GetAddOnMetadata(name, field)
+    end
+    return _G.GetAddOnMetadata and _G.GetAddOnMetadata(name, field) or nil
+end
+
+local function _isAddOnLoaded(name)
+    if C_AddOns and C_AddOns.IsAddOnLoaded then
+        return C_AddOns.IsAddOnLoaded(name)
+    end
+    return _G.IsAddOnLoaded and _G.IsAddOnLoaded(name) or false
+end
+
+local function _unitBuff(unit, index, filter)
+    if C_UnitAuras and C_UnitAuras.GetBuffDataByIndex then
+        local d = C_UnitAuras.GetBuffDataByIndex(unit, index, filter)
+        if not d then return nil end
+        return d.name, d.icon, d.applications or d.charges, d.dispelName, d.duration,
+               d.expirationTime, d.sourceUnit, d.isStealable, d.nameplateShowPersonal, d.spellId
+    end
+    return _G.UnitBuff and _G.UnitBuff(unit, index, filter)
+end
+
+ns.compat = {
+    GetAddOnMetadata = _getAddOnMetadata,
+    IsAddOnLoaded    = _isAddOnLoaded,
+    UnitBuff         = _unitBuff,
+}
+
 local MRT = LibStub("AceAddon-3.0"):NewAddon(
     ADDON_NAME,
     "AceConsole-3.0",
@@ -15,7 +47,7 @@ ns.ADDON_NAME = ADDON_NAME
 local L = LibStub("AceLocale-3.0"):GetLocale(ADDON_NAME, true) or setmetatable({}, { __index = function(_, k) return k end })
 ns.L = L
 
-MRT.version = GetAddOnMetadata(ADDON_NAME, "Version") or "0.0.0"
+MRT.version = ns.compat.GetAddOnMetadata(ADDON_NAME, "Version") or "0.0.0"
 MRT.commPrefix = "MRT1"
 
 local defaults = {

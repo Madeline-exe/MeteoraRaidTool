@@ -80,8 +80,9 @@ function Consumables:ScanUnit(unit)
     local data = roster[name] or { name = name, class = (select(2, UnitClass(unit))), buffs = {} }
     wipe(data.buffs)
 
+    local unitBuff = ns.compat.UnitBuff
     for i = 1, 40 do
-        local auraName, _, _, _, _, _, _, _, _, spellID = UnitBuff(unit, i)
+        local auraName, _, _, _, _, _, _, _, _, spellID = unitBuff(unit, i)
         if not auraName then break end
         if spellID then
             local category, label = DB:Lookup(spellID)
