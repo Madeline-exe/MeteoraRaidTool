@@ -22,7 +22,7 @@ jobs:
       - name: Package addon (with Ace3 libs embedded)
         uses: BigWigsMods/packager@v2
         with:
-          args: -g classic -w 0
+          args: -g bcc -w 0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
