@@ -5,157 +5,87 @@ local UI = MRT.UI
 
 local AceGUI = LibStub("AceGUI-3.0")
 
-local councilFrame, voteFrame
+local awardFrame
 
-function UI:BuildLootTab(container)
-    local info = AceGUI:Create("Label")
-    info:SetFullWidth(true)
-    info:SetText(L["loot_tab_info"])
-    container:AddChild(info)
-
-    local openBtn = AceGUI:Create("Button")
-    openBtn:SetText(L["loot_open_test"])
-    openBtn:SetWidth(180)
-    openBtn:SetCallback("OnClick", function()
-        local session = MRT.Loot:GetSession() or MRT.pendingSession
-        if session and councilFrame == nil then
-            UI:OpenLootCouncil(session)
-        else
-            MRT:Print(L["loot_no_session"])
+local function raidRosterList()
+    local list = {}
+    if IsInRaid() then
+        for i = 1, GetNumGroupMembers() do
+            local name = GetRaidRosterInfo(i)
+            if name then list[name] = name end
         end
-    end)
-    container:AddChild(openBtn)
+    else
+        list[UnitName("player")] = UnitName("player")
+        for i = 1, (GetNumGroupMembers() or 0) - 1 do
+            local name = UnitName("party" .. i)
+            if name then list[name] = name end
+        end
+    end
+    return list
 end
 
-function UI:OpenLootCouncil(session)
-    if councilFrame then councilFrame:Release() end
-    councilFrame = AceGUI:Create("Frame")
-    councilFrame:SetTitle(L["loot_council_title"])
-    councilFrame:SetStatusText(string.format("Session %s", session.id))
-    councilFrame:SetLayout("Flow")
-    councilFrame:SetWidth(620)
-    councilFrame:SetHeight(420)
-    councilFrame:SetCallback("OnClose", function(widget) widget:Hide(); councilFrame = nil end)
+function UI:OpenAwardWindow(items)
+    if awardFrame then awardFrame:Release() end
 
-    for idx, item in ipairs(session.items) do
+    awardFrame = AceGUI:Create("Frame")
+    awardFrame:SetTitle(L["award_title"])
+    awardFrame:SetStatusText(L["award_status"])
+    awardFrame:SetLayout("Flow")
+    awardFrame:SetWidth(560)
+    awardFrame:SetHeight(420)
+    awardFrame:SetCallback("OnClose", function(w) w:Hide(); awardFrame = nil end)
+
+    local scroll = AceGUI:Create("ScrollFrame")
+    scroll:SetLayout("List")
+    scroll:SetFullWidth(true)
+    scroll:SetFullHeight(true)
+    awardFrame:AddChild(scroll)
+
+    for _, item in ipairs(items) do
         local group = AceGUI:Create("InlineGroup")
         group:SetTitle(item.link or ("item:" .. item.itemID))
         group:SetFullWidth(true)
         group:SetLayout("Flow")
+        scroll:AddChild(group)
 
-        local srLabel = AceGUI:Create("Label")
         local reservers = MRT.SoftReserve:GetReservesForItem(item.itemID)
+        local srLabel = AceGUI:Create("Label")
         srLabel:SetFullWidth(true)
-        srLabel:SetText(L["loot_sr_for_item"] .. ": " .. (next(reservers) and table.concat(reservers, ", ") or L["sr_none"]))
+        if #reservers > 0 then
+            srLabel:SetText("|cffff8800" .. L["award_sr"] .. ":|r " .. table.concat(reservers, ", "))
+        else
+            srLabel:SetText("|cff888888" .. L["award_no_sr"] .. "|r")
+        end
         group:AddChild(srLabel)
 
-        local votesScroll = AceGUI:Create("ScrollFrame")
-        votesScroll:SetLayout("List")
-        votesScroll:SetFullWidth(true)
-        votesScroll:SetHeight(120)
-        group:AddChild(votesScroll)
+        local dd = AceGUI:Create("Dropdown")
+        dd:SetLabel(L["award_to"])
+        local roster = raidRosterList()
+        dd:SetList(roster)
+        if reservers[1] then dd:SetValue(reservers[1]) end
+        dd:SetWidth(220)
+        group:AddChild(dd)
 
-        item._votesScroll = votesScroll
-        item._index = idx
-
-        local awardEdit = AceGUI:Create("EditBox")
-        awardEdit:SetLabel(L["loot_award_to"])
-        awardEdit:SetWidth(180)
-        group:AddChild(awardEdit)
-
-        local reasonDD = AceGUI:Create("Dropdown")
-        reasonDD:SetLabel(L["loot_reason"])
-        reasonDD:SetList({
-            need = "Need",
-            os   = "Offspec",
-            tmog = "Transmog",
-            sr   = "Soft Reserve",
-        })
-        reasonDD:SetValue("need")
-        reasonDD:SetWidth(140)
-        group:AddChild(reasonDD)
+        local noteBox = AceGUI:Create("EditBox")
+        noteBox:SetLabel(L["award_note"])
+        noteBox:SetWidth(180)
+        group:AddChild(noteBox)
 
         local awardBtn = AceGUI:Create("Button")
-        awardBtn:SetText(L["loot_award"])
+        awardBtn:SetText(L["btn_award"])
         awardBtn:SetWidth(110)
         awardBtn:SetCallback("OnClick", function()
-            local winner = awardEdit:GetText()
-            if winner and winner ~= "" then
-                MRT.Loot:Award(idx, winner, reasonDD:GetValue())
-                if councilFrame then councilFrame:SetStatusText(L["loot_awarded_status"]:format(winner)) end
+            local winner = dd:GetValue()
+            if not winner or winner == "" then
+                MRT:Print(L["award_pick_winner"])
+                return
             end
+            MRT.Loot:Award(item, winner, noteBox:GetText())
+            srLabel:SetText("|cff00ff00" .. L["award_done"]:format(winner) .. "|r")
+            awardBtn:SetDisabled(true)
+            dd:SetDisabled(true)
+            UI:Refresh()
         end)
         group:AddChild(awardBtn)
-
-        councilFrame:AddChild(group)
     end
-
-    self:RefreshLootCouncil(session)
-end
-
-function UI:RefreshLootCouncil(session)
-    if not councilFrame then return end
-    for idx, item in ipairs(session.items) do
-        local scroll = item._votesScroll
-        if scroll then
-            scroll:ReleaseChildren()
-            local votes = session.votes[idx] or {}
-            for player, vote in pairs(votes) do
-                local lbl = AceGUI:Create("Label")
-                lbl:SetFullWidth(true)
-                lbl:SetText(string.format("%s — |cffffff00%s|r%s%s",
-                    player,
-                    vote.response or "",
-                    vote.sr and " |cffff8800[SR]|r" or "",
-                    vote.comment and (" — " .. vote.comment) or ""))
-                scroll:AddChild(lbl)
-            end
-        end
-    end
-end
-
-function UI:OpenLootVote(session)
-    if voteFrame then voteFrame:Release() end
-    voteFrame = AceGUI:Create("Frame")
-    voteFrame:SetTitle(L["loot_vote_title"])
-    voteFrame:SetStatusText(L["loot_vote_status"])
-    voteFrame:SetLayout("Flow")
-    voteFrame:SetWidth(520)
-    voteFrame:SetHeight(420)
-    voteFrame:SetCallback("OnClose", function(widget) widget:Hide(); voteFrame = nil end)
-
-    for idx, item in ipairs(session.items) do
-        local group = AceGUI:Create("InlineGroup")
-        group:SetTitle(item.link or ("item:" .. item.itemID))
-        group:SetFullWidth(true)
-        group:SetLayout("Flow")
-
-        local commentBox = AceGUI:Create("EditBox")
-        commentBox:SetLabel(L["loot_comment"])
-        commentBox:SetWidth(280)
-        group:AddChild(commentBox)
-
-        local responses = {
-            { key = "need",  text = "Need"     },
-            { key = "os",    text = "Offspec"  },
-            { key = "tmog",  text = "Transmog" },
-            { key = "pass",  text = "Pass"     },
-        }
-        for _, r in ipairs(responses) do
-            local btn = AceGUI:Create("Button")
-            btn:SetText(r.text)
-            btn:SetWidth(90)
-            btn:SetCallback("OnClick", function()
-                MRT.Loot:Vote(idx, r.key, commentBox:GetText())
-                MRT:Print(L["loot_vote_sent"]:format(r.text))
-            end)
-            group:AddChild(btn)
-        end
-
-        voteFrame:AddChild(group)
-    end
-end
-
-function UI:CloseLootVote()
-    if voteFrame then voteFrame:Release(); voteFrame = nil end
 end

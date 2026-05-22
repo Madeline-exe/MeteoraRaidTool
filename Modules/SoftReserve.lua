@@ -5,153 +5,193 @@ local L = ns.L
 local SoftReserve = MRT:NewModule("SoftReserve", "AceEvent-3.0")
 MRT.SoftReserve = SoftReserve
 
+-- reserves[player] = { itemID, itemID, ... }
 local reserves = {}
-local locked = false
+local currentRaidID = nil
+local reservesOpen = false
+
+local function ambig(name) return Ambiguate(name, "short") end
 
 function SoftReserve:OnEnable()
     local Comm = MRT.Comm
-    Comm:On(Comm.MSG.RESERVE_SET, function(payload, sender) self:OnRemoteSet(payload, sender) end)
-    Comm:On(Comm.MSG.RESERVE_DEL, function(payload, sender) self:OnRemoteDel(payload, sender) end)
-    Comm:On(Comm.MSG.RESERVE_SYNC, function(payload, sender) self:OnRemoteSync(payload, sender) end)
+    Comm:On(Comm.MSG.RESERVE_SET,  function(p, s) self:OnRemoteSet(p, s) end)
+    Comm:On(Comm.MSG.RESERVE_DEL,  function(p, s) self:OnRemoteDel(p, s) end)
+    Comm:On(Comm.MSG.RESERVE_SYNC, function(p, s) self:OnRemoteSync(p, s) end)
 
     self:RegisterEvent("ENCOUNTER_START", "OnEncounterStart")
-    self:RegisterEvent("ENCOUNTER_END",   "OnEncounterEnd")
 end
 
-function SoftReserve:HandleSlash(rest)
-    rest = (rest or ""):trim()
-    if rest == "" or rest == "list" then
-        self:PrintList()
-        return
-    end
-    if rest == "clear" then
-        self:ClearMine()
-        return
-    end
-    if rest == "lock" then
-        if MRT:IsRaidLeader() or MRT:IsRaidAssistant() then
-            locked = true
-            MRT:Print(L["sr_locked"])
-        else
-            MRT:Print(L["sr_need_lead"])
-        end
-        return
-    end
-    if rest == "unlock" then
-        if MRT:IsRaidLeader() or MRT:IsRaidAssistant() then
-            locked = false
-            MRT:Print(L["sr_unlocked"])
-        else
-            MRT:Print(L["sr_need_lead"])
-        end
-        return
-    end
+-- ============================================================
+-- Current raid & open/closed state (RL controls, all see)
+-- ============================================================
 
-    local itemID = self:ParseItem(rest)
-    if not itemID then
-        MRT:Print(L["sr_bad_item"])
-        return
-    end
-    self:Reserve(itemID)
+function SoftReserve:GetCurrentRaid()
+    return currentRaidID
 end
 
-function SoftReserve:ParseItem(input)
-    local id = input:match("item:(%d+)")
-    if id then return tonumber(id) end
-    local n = tonumber(input)
-    if n then return n end
-    return nil
+function SoftReserve:IsOpen()
+    return reservesOpen
 end
 
-function SoftReserve:Reserve(itemID)
-    if locked and MRT.db.profile.softReserve.lockedAfterPull then
-        MRT:Print(L["sr_locked_msg"])
+function SoftReserve:SetCurrentRaid(raidID, open)
+    if not (MRT:IsRaidLeader() or MRT:IsRaidAssistant()) then
+        MRT:Print(L["sr_need_lead"])
+        return false
+    end
+    currentRaidID = raidID
+    if open ~= nil then reservesOpen = open end
+    MRT.Comm:Send(MRT.Comm.MSG.RESERVE_SYNC, {
+        currentRaidID = currentRaidID,
+        reservesOpen  = reservesOpen,
+        reserves      = reserves,
+    })
+    MRT:SendMessage("MRT_SR_STATE_CHANGED")
+    return true
+end
+
+function SoftReserve:SetOpen(open)
+    if not (MRT:IsRaidLeader() or MRT:IsRaidAssistant()) then
+        MRT:Print(L["sr_need_lead"])
+        return false
+    end
+    reservesOpen = open and true or false
+    MRT.Comm:Send(MRT.Comm.MSG.RESERVE_SYNC, {
+        currentRaidID = currentRaidID,
+        reservesOpen  = reservesOpen,
+        reserves      = reserves,
+    })
+    MRT:SendMessage("MRT_SR_STATE_CHANGED")
+    return true
+end
+
+function SoftReserve:ClearAll()
+    if not (MRT:IsRaidLeader() or MRT:IsRaidAssistant()) then
+        MRT:Print(L["sr_need_lead"])
+        return false
+    end
+    reserves = {}
+    MRT.Comm:Send(MRT.Comm.MSG.RESERVE_SYNC, {
+        currentRaidID = currentRaidID,
+        reservesOpen  = reservesOpen,
+        reserves      = reserves,
+    })
+    MRT:SendMessage("MRT_SR_STATE_CHANGED")
+    return true
+end
+
+-- ============================================================
+-- Player actions
+-- ============================================================
+
+function SoftReserve:CanReserve()
+    return reservesOpen and currentRaidID ~= nil
+end
+
+function SoftReserve:HasReserved(player, itemID)
+    local list = reserves[player]
+    if not list then return false end
+    for _, id in ipairs(list) do
+        if id == itemID then return true end
+    end
+    return false
+end
+
+function SoftReserve:CountForPlayer(player)
+    local list = reserves[player]
+    return list and #list or 0
+end
+
+function SoftReserve:ToggleReserve(itemID)
+    if not self:CanReserve() then
+        MRT:Print(L["sr_closed"])
         return
     end
     local me = UnitName("player")
     reserves[me] = reserves[me] or {}
     local list = reserves[me]
+
+    for i, id in ipairs(list) do
+        if id == itemID then
+            table.remove(list, i)
+            MRT.Comm:Send(MRT.Comm.MSG.RESERVE_DEL, { player = me, itemID = itemID })
+            MRT:SendMessage("MRT_SR_STATE_CHANGED")
+            return
+        end
+    end
+
     local maxN = MRT.db.profile.softReserve.maxPerPlayer
     if #list >= maxN then
         MRT:Print(L["sr_max"]:format(maxN))
         return
     end
-    if not MRT.db.profile.softReserve.allowDuplicates then
-        for _, id in ipairs(list) do
-            if id == itemID then
-                MRT:Print(L["sr_dup"])
-                return
-            end
-        end
-    end
+
     table.insert(list, itemID)
     MRT.Comm:Send(MRT.Comm.MSG.RESERVE_SET, { player = me, itemID = itemID })
-
-    local link = select(2, GetItemInfo(itemID)) or ("item:" .. itemID)
-    MRT:Print(L["sr_added"]:format(link))
+    MRT:SendMessage("MRT_SR_STATE_CHANGED")
 end
 
-function SoftReserve:ClearMine()
-    local me = UnitName("player")
-    reserves[me] = nil
-    MRT.Comm:Send(MRT.Comm.MSG.RESERVE_DEL, { player = me })
-    MRT:Print(L["sr_cleared"])
-end
+-- ============================================================
+-- Comm handlers
+-- ============================================================
 
 function SoftReserve:OnRemoteSet(payload, sender)
     if not payload or not payload.itemID then return end
-    local player = payload.player or Ambiguate(sender, "short")
+    if not reservesOpen and not (MRT:IsRaidLeader() or MRT:IsRaidAssistant()) then
+        -- Accept anyway; canonical state comes from sync
+    end
+    local player = payload.player or ambig(sender)
     reserves[player] = reserves[player] or {}
+    for _, id in ipairs(reserves[player]) do
+        if id == payload.itemID then return end
+    end
     table.insert(reserves[player], payload.itemID)
+    MRT:SendMessage("MRT_SR_STATE_CHANGED")
 end
 
 function SoftReserve:OnRemoteDel(payload, sender)
-    local player = (payload and payload.player) or Ambiguate(sender, "short")
-    reserves[player] = nil
-end
-
-function SoftReserve:OnRemoteSync(payload, _)
-    if type(payload) ~= "table" or type(payload.reserves) ~= "table" then return end
-    for player, items in pairs(payload.reserves) do
-        reserves[player] = items
+    if not payload then return end
+    local player = payload.player or ambig(sender)
+    if payload.itemID then
+        local list = reserves[player]
+        if list then
+            for i, id in ipairs(list) do
+                if id == payload.itemID then table.remove(list, i); break end
+            end
+        end
+    else
+        reserves[player] = nil
     end
+    MRT:SendMessage("MRT_SR_STATE_CHANGED")
 end
 
-function SoftReserve:BroadcastFullSync()
-    if not (MRT:IsRaidLeader() or MRT:IsRaidAssistant()) then return end
-    MRT.Comm:Send(MRT.Comm.MSG.RESERVE_SYNC, { reserves = reserves })
+function SoftReserve:OnRemoteSync(payload, sender)
+    if type(payload) ~= "table" then return end
+    if payload.currentRaidID ~= nil then currentRaidID = payload.currentRaidID end
+    if payload.reservesOpen ~= nil then reservesOpen = payload.reservesOpen end
+    if type(payload.reserves) == "table" then reserves = payload.reserves end
+    MRT:SendMessage("MRT_SR_STATE_CHANGED")
 end
 
-function SoftReserve:GetAll()
-    return reserves
-end
+-- ============================================================
+-- Read API for UI / Loot
+-- ============================================================
+
+function SoftReserve:GetAll() return reserves end
 
 function SoftReserve:GetReservesForItem(itemID)
     local out = {}
     for player, items in pairs(reserves) do
         for _, id in ipairs(items) do
-            if id == itemID then table.insert(out, player) end
+            if id == itemID then table.insert(out, player); break end
         end
     end
     return out
 end
 
-function SoftReserve:PrintList()
-    local count = 0
-    for player, items in pairs(reserves) do
-        local parts = {}
-        for _, id in ipairs(items) do
-            parts[#parts + 1] = select(2, GetItemInfo(id)) or ("item:" .. id)
-        end
-        MRT:Print(player .. ": " .. table.concat(parts, ", "))
-        count = count + 1
-    end
-    if count == 0 then MRT:Print(L["sr_empty"]) end
-end
-
 function SoftReserve:OnEncounterStart()
-    if MRT.db.profile.softReserve.lockedAfterPull then locked = true end
-end
-
-function SoftReserve:OnEncounterEnd()
+    if MRT.db.profile.softReserve.lockedAfterPull and reservesOpen then
+        if MRT:IsRaidLeader() then
+            self:SetOpen(false)
+        end
+    end
 end

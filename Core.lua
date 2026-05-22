@@ -137,9 +137,16 @@ function MRT:OnSlashCommand(input)
 
     if cmd == "" or cmd == "show" or cmd == "toggle" then
         if self.UI and self.UI.Toggle then self.UI:Toggle() end
-    elseif cmd == "reserve" or cmd == "sr" then
-        if self.SoftReserve and self.SoftReserve.HandleSlash then
-            self.SoftReserve:HandleSlash(rest)
+    elseif cmd == "scan" then
+        if self.RaidLoot and self.SoftReserve then
+            local raidID = self.SoftReserve:GetCurrentRaid()
+            if raidID then
+                self.RaidLoot:Refresh(raidID)
+                self:Print(L["scan_done"]:format(raidID))
+                if self.UI and self.UI.Refresh then self.UI:Refresh() end
+            else
+                self:Print(L["scan_no_raid"])
+            end
         end
     elseif cmd == "casino" then
         if self.Casino and self.Casino.HandleSlash then
@@ -160,10 +167,9 @@ end
 
 function MRT:PrintHelp()
     self:Print("|cffffd200/mrt|r " .. L["help_show"])
-    self:Print("|cffffd200/mrt sr <item>|r " .. L["help_sr"])
+    self:Print("|cffffd200/mrt scan|r " .. L["help_scan"])
     self:Print("|cffffd200/mrt casino|r " .. L["help_casino"])
     self:Print("|cffffd200/mrt consumables|r " .. L["help_cons"])
-    self:Print("|cffffd200/mrt config|r " .. L["help_config"])
 end
 
 function MRT:OpenConfig()
