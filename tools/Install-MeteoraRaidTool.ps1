@@ -51,6 +51,21 @@ $CacheFile  = Join-Path $env:USERPROFILE '.meteora-raid-tool.json'
 function Write-Info ($msg) { Write-Host "[meteora] $msg" -ForegroundColor Cyan }
 function Write-Ok   ($msg) { Write-Host "[meteora] $msg" -ForegroundColor Green }
 function Write-Warn ($msg) { Write-Host "[meteora] $msg" -ForegroundColor Yellow }
+function Write-Err  ($msg) { Write-Host "[meteora] $msg" -ForegroundColor Red }
+
+Write-Info "Meteora Raid Tool installer started."
+Write-Info "Repo: $Repo  | Source: $Source"
+
+trap {
+    Write-Err ""
+    Write-Err "==== INSTALL FAILED ===="
+    Write-Err $_.Exception.Message
+    if ($_.InvocationInfo) {
+        Write-Err ("at " + $_.InvocationInfo.PositionMessage)
+    }
+    Write-Err "========================"
+    exit 1
+}
 
 function Resolve-WoWAddonsPath {
     param([string]$Explicit)
