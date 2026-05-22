@@ -8,30 +8,36 @@ MRT.UI = UI
 local AceGUI = LibStub("AceGUI-3.0")
 
 local main, tabGroup
+UI.editMode = false
 
-local function isRL()
-    return MRT:IsRaidLeader() or MRT:IsRaidAssistant() or not IsInRaid()
-end
-
-local function buildContent(container, group)
+local function safeBuild(group, container)
     container:ReleaseChildren()
-    if group == "reserves" then
-        UI:BuildReservesTab(container)
-    elseif group == "status" then
-        UI:BuildStatusTab(container)
-    elseif group == "history" then
-        UI:BuildHistoryTab(container)
+    local ok, err = pcall(function()
+        if group == "reserves" then
+            UI:BuildReservesTab(container)
+        elseif group == "status" then
+            UI:BuildStatusTab(container)
+        elseif group == "history" then
+            UI:BuildHistoryTab(container)
+        end
+    end)
+    if not ok then
+        local lbl = AceGUI:Create("Label")
+        lbl:SetFullWidth(true)
+        lbl:SetText("|cffff5555UI error: " .. tostring(err) .. "|r")
+        container:AddChild(lbl)
+        MRT:Print("|cffff5555[UI]|r " .. tostring(err))
     end
 end
 
 function UI:OnEnable()
-    self:RegisterMessage("MRT_SR_STATE_CHANGED", "OnStateChanged")
+    self:RegisterMessage("MRT_SR_STATE_CHANGED",  "RefreshLater")
+    self:RegisterMessage("MRT_RAIDLOOT_CHANGED",  "RefreshLater")
 end
 
-function UI:OnStateChanged()
-    if main and main:IsShown() and tabGroup then
-        local current = tabGroup:GetCurrentTab and tabGroup.localstatus and tabGroup.localstatus.selected
-        if current then buildContent(tabGroup, current) end
+function UI:RefreshLater()
+    if main and main:IsShown() then
+        self:Refresh()
     end
 end
 
@@ -42,8 +48,8 @@ function UI:Build()
     main:SetTitle("Meteora Raid Tool")
     main:SetStatusText(L["status_ready"])
     main:SetLayout("Fill")
-    main:SetWidth(680)
-    main:SetHeight(500)
+    main:SetWidth(700)
+    main:SetHeight(520)
     main:EnableResize(true)
     main:SetCallback("OnClose", function(w) w:Hide() end)
 
@@ -54,7 +60,7 @@ function UI:Build()
         { value = "status",   text = L["tab_status"]   },
         { value = "history",  text = L["tab_history"]  },
     })
-    tabGroup:SetCallback("OnGroupSelected", function(_, _, group) buildContent(tabGroup, group) end)
+    tabGroup:SetCallback("OnGroupSelected", function(_, _, group) safeBuild(group, tabGroup) end)
     tabGroup:SelectTab("reserves")
     main:AddChild(tabGroup)
 
@@ -62,19 +68,29 @@ function UI:Build()
 end
 
 function UI:Toggle()
-    self:Build()
-    if main:IsShown() then main:Hide() else main:Show() end
+    local ok, err = pcall(function() self:Build() end)
+    if not ok or not main then
+        MRT:Print("|cffff5555[UI Toggle]|r " .. tostring(err))
+        main = nil
+        return
+    end
+    if main:IsShown() then
+        main:Hide()
+    else
+        main:Show()
+        self:Refresh()
+    end
 end
 
 function UI:Refresh()
     if main and main:IsShown() and tabGroup then
-        local current = tabGroup.localstatus and tabGroup.localstatus.selected or "reserves"
-        buildContent(tabGroup, current)
+        local current = (tabGroup.localstatus and tabGroup.localstatus.selected) or "reserves"
+        safeBuild(current, tabGroup)
     end
 end
 
 -- ============================================================
--- Status tab (RL view of all reserves)
+-- Status tab
 -- ============================================================
 
 function UI:BuildStatusTab(container)
@@ -85,7 +101,7 @@ function UI:BuildStatusTab(container)
     header:SetFullWidth(true)
     header:SetText(L["status_current_raid"]:format(
         raidID and ns.RaidsByID[raidID] and ns.RaidsByID[raidID].name or L["none"],
-        SR:IsOpen() and L["state_open"] or L["state_closed"]
+        SR:IsOpen() and "|cff00ff00" .. L["state_open"] .. "|r" or "|cffff5555" .. L["state_closed"] .. "|r"
     ))
     header:SetFontObject(GameFontHighlight)
     container:AddChild(header)
@@ -96,7 +112,6 @@ function UI:BuildStatusTab(container)
     scroll:SetFullHeight(true)
     container:AddChild(scroll)
 
-    -- Aggregate by item
     local byItem = {}
     for player, items in pairs(SR:GetAll()) do
         for _, itemID in ipairs(items) do

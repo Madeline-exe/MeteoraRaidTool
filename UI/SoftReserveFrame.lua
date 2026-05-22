@@ -11,18 +11,111 @@ end
 
 local function raidDropdownList()
     local list = {}
-    for _, raid in ipairs(ns.Raids) do
-        list[raid.id] = raid.name
-    end
+    for _, raid in ipairs(ns.Raids) do list[raid.id] = raid.name end
     return list
 end
 
 local function raidDropdownOrder()
     local order = {}
-    for _, raid in ipairs(ns.Raids) do
-        table.insert(order, raid.id)
-    end
+    for _, raid in ipairs(ns.Raids) do table.insert(order, raid.id) end
     return order
+end
+
+local function parseItemIDFromInput(text)
+    if not text then return nil end
+    text = text:trim()
+    if text == "" then return nil end
+    local id = text:match("item:(%d+)")
+    if id then return tonumber(id) end
+    return tonumber(text)
+end
+
+local function buildItemRow(parent, itemID, raidID, bossIndex)
+    local SR = MRT.SoftReserve
+    local me = UnitName("player")
+    local reserved = SR:HasReserved(me, itemID)
+    local reservers = SR:GetReservesForItem(itemID)
+
+    local row = AceGUI:Create("SimpleGroup")
+    row:SetLayout("Flow")
+    row:SetFullWidth(true)
+
+    if UI.editMode then
+        local rm = AceGUI:Create("Button")
+        rm:SetText("X")
+        rm:SetWidth(40)
+        rm:SetCallback("OnClick", function()
+            MRT.RaidLoot:RemoveItem(raidID, bossIndex, itemID)
+            UI:Refresh()
+        end)
+        row:AddChild(rm)
+    else
+        local star = AceGUI:Create("Button")
+        star:SetText(reserved and "★" or "☆")
+        star:SetWidth(45)
+        star:SetDisabled(not SR:CanReserve())
+        star:SetCallback("OnClick", function()
+            SR:ToggleReserve(itemID)
+            UI:Refresh()
+        end)
+        row:AddChild(star)
+    end
+
+    local link = select(2, GetItemInfo(itemID)) or ("item:" .. itemID)
+    local lbl = AceGUI:Create("InteractiveLabel")
+    lbl:SetText(link)
+    lbl:SetWidth(320)
+    lbl:SetCallback("OnEnter", function(w)
+        GameTooltip:SetOwner(w.frame, "ANCHOR_RIGHT")
+        GameTooltip:SetHyperlink("item:" .. itemID)
+        GameTooltip:Show()
+    end)
+    lbl:SetCallback("OnLeave", function() GameTooltip:Hide() end)
+    row:AddChild(lbl)
+
+    if not UI.editMode and #reservers > 0 then
+        local meta = AceGUI:Create("Label")
+        meta:SetWidth(220)
+        meta:SetText(string.format("|cffffd200%d|r: %s", #reservers, table.concat(reservers, ", ")))
+        row:AddChild(meta)
+    end
+
+    parent:AddChild(row)
+end
+
+local function buildAddItemRow(parent, raidID, bossIndex)
+    local row = AceGUI:Create("SimpleGroup")
+    row:SetLayout("Flow")
+    row:SetFullWidth(true)
+
+    local edit = AceGUI:Create("EditBox")
+    edit:SetWidth(440)
+    edit:SetLabel(L["edit_add_hint"])
+
+    local function commit(widget, _, value)
+        local itemID = parseItemIDFromInput(value)
+        if not itemID then
+            MRT:Print(L["loot_bad_item"])
+            return
+        end
+        local ok = MRT.RaidLoot:AddItem(raidID, bossIndex, itemID)
+        if ok then
+            widget:SetText("")
+            UI:Refresh()
+        end
+    end
+    edit:SetCallback("OnEnterPressed", commit)
+    row:AddChild(edit)
+
+    local addBtn = AceGUI:Create("Button")
+    addBtn:SetText(L["btn_add_item"])
+    addBtn:SetWidth(80)
+    addBtn:SetCallback("OnClick", function()
+        commit(edit, nil, edit:GetText())
+    end)
+    row:AddChild(addBtn)
+
+    parent:AddChild(row)
 end
 
 function UI:BuildReservesTab(container)
@@ -42,7 +135,6 @@ function UI:BuildReservesTab(container)
         dd:SetValue(SR:GetCurrentRaid())
         dd:SetCallback("OnValueChanged", function(_, _, value)
             SR:SetCurrentRaid(value)
-            if MRT.RaidLoot then MRT.RaidLoot:Get(value) end
             UI:Refresh()
         end)
         bar:AddChild(dd)
@@ -56,9 +148,18 @@ function UI:BuildReservesTab(container)
         end)
         bar:AddChild(toggle)
 
+        local edit = AceGUI:Create("Button")
+        edit:SetText(UI.editMode and L["btn_edit_done"] or L["btn_edit"])
+        edit:SetWidth(120)
+        edit:SetCallback("OnClick", function()
+            UI.editMode = not UI.editMode
+            UI:Refresh()
+        end)
+        bar:AddChild(edit)
+
         local clear = AceGUI:Create("Button")
         clear:SetText(L["btn_clear_all"])
-        clear:SetWidth(140)
+        clear:SetWidth(120)
         clear:SetCallback("OnClick", function()
             StaticPopupDialogs = StaticPopupDialogs or {}
             StaticPopupDialogs["MRT_CLEAR_RESERVES"] = {
@@ -91,7 +192,9 @@ function UI:BuildReservesTab(container)
     local counter = AceGUI:Create("Label")
     counter:SetFullWidth(true)
     counter:SetFontObject(GameFontNormal)
-    counter:SetText(string.format("|cffffd200%s:|r %d / %d", L["you_reserved"], count, maxN))
+    counter:SetText(string.format("|cffffd200%s:|r %d / %d%s",
+        L["you_reserved"], count, maxN,
+        UI.editMode and ("   |cffff8800[" .. L["edit_mode_on"] .. "]|r") or ""))
     container:AddChild(counter)
 
     -- ---------- BOSS TREE ----------
@@ -110,81 +213,37 @@ function UI:BuildReservesTab(container)
         return
     end
 
-    local cache = MRT.RaidLoot and MRT.RaidLoot:Get(raidID) or nil
-    if not cache or not cache.bosses or #cache.bosses == 0 then
-        local hint = AceGUI:Create("Label")
-        hint:SetFullWidth(true)
-        hint:SetText("\n" .. L["hint_no_loot_data"])
-        scroll:AddChild(hint)
+    local raid = ns.RaidsByID[raidID]
+    if not raid then return end
 
-        local refresh = AceGUI:Create("Button")
-        refresh:SetText(L["btn_refresh_loot"])
-        refresh:SetWidth(200)
-        refresh:SetCallback("OnClick", function()
-            if MRT.RaidLoot then MRT.RaidLoot:Refresh(raidID) end
-            UI:Refresh()
-        end)
-        scroll:AddChild(refresh)
-        return
+    if UI.editMode then
+        local tip = AceGUI:Create("Label")
+        tip:SetFullWidth(true)
+        tip:SetText("|cffaaaaaa" .. L["edit_tip"] .. "|r")
+        scroll:AddChild(tip)
     end
 
-    local canReserve = SR:CanReserve()
-
-    for _, boss in ipairs(cache.bosses) do
+    for bossIndex, boss in ipairs(raid.bosses) do
         local group = AceGUI:Create("InlineGroup")
         group:SetTitle(boss.name)
         group:SetFullWidth(true)
         group:SetLayout("List")
         scroll:AddChild(group)
 
-        if #boss.items == 0 then
+        local items = MRT.RaidLoot:GetItems(raidID, bossIndex)
+        if #items == 0 then
             local empty = AceGUI:Create("Label")
-            empty:SetText(L["boss_no_items"])
+            empty:SetText("|cff888888" .. L["boss_no_items"] .. "|r")
             empty:SetFullWidth(true)
             group:AddChild(empty)
+        else
+            for _, itemID in ipairs(items) do
+                buildItemRow(group, itemID, raidID, bossIndex)
+            end
         end
 
-        for _, item in ipairs(boss.items) do
-            local itemID = item.itemID
-            local reserved = SR:HasReserved(UnitName("player"), itemID)
-            local reservers = SR:GetReservesForItem(itemID)
-
-            local row = AceGUI:Create("SimpleGroup")
-            row:SetLayout("Flow")
-            row:SetFullWidth(true)
-
-            local btn = AceGUI:Create("Button")
-            btn:SetText(reserved and "★" or "☆")
-            btn:SetWidth(50)
-            btn:SetDisabled(not canReserve)
-            btn:SetCallback("OnClick", function()
-                SR:ToggleReserve(itemID)
-                UI:Refresh()
-            end)
-            row:AddChild(btn)
-
-            local link = item.link or select(2, GetItemInfo(itemID)) or item.name or ("item:" .. itemID)
-            local lbl = AceGUI:Create("InteractiveLabel")
-            lbl:SetText(link)
-            lbl:SetWidth(320)
-            lbl:SetCallback("OnEnter", function(w)
-                GameTooltip:SetOwner(w.frame, "ANCHOR_RIGHT")
-                GameTooltip:SetHyperlink("item:" .. itemID)
-                GameTooltip:Show()
-            end)
-            lbl:SetCallback("OnLeave", function() GameTooltip:Hide() end)
-            row:AddChild(lbl)
-
-            local meta = AceGUI:Create("Label")
-            meta:SetWidth(180)
-            if #reservers > 0 then
-                meta:SetText(string.format("|cffffd200%d|r: %s", #reservers, table.concat(reservers, ", ")))
-            else
-                meta:SetText("")
-            end
-            row:AddChild(meta)
-
-            group:AddChild(row)
+        if UI.editMode then
+            buildAddItemRow(group, raidID, bossIndex)
         end
     end
 end

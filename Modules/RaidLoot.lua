@@ -1,87 +1,141 @@
 local ADDON_NAME, ns = ...
 local MRT = ns.MRT
 
-local RaidLoot = MRT:NewModule("RaidLoot")
+local RaidLoot = MRT:NewModule("RaidLoot", "AceEvent-3.0")
 MRT.RaidLoot = RaidLoot
 
-local function ensureEJLoaded()
-    if not _G.EncounterJournal then
-        if type(_G.UIParentLoadAddOn) == "function" then
-            pcall(_G.UIParentLoadAddOn, "Blizzard_EncounterJournal")
-        elseif type(_G.LoadAddOn) == "function" then
-            pcall(_G.LoadAddOn, "Blizzard_EncounterJournal")
-        elseif _G.C_AddOns and type(_G.C_AddOns.LoadAddOn) == "function" then
-            pcall(_G.C_AddOns.LoadAddOn, "Blizzard_EncounterJournal")
-        end
-    end
-end
-
-local function ejAvailable()
-    ensureEJLoaded()
-    return type(_G.EJ_SelectInstance) == "function"
-        and type(_G.EJ_GetEncounterInfoByIndex) == "function"
-        and type(_G.EJ_SelectEncounter) == "function"
-        and (type(_G.EJ_GetLootInfoByIndex) == "function" or type(_G.EJ_GetLootInfo) == "function")
-end
-
-local function getCache(raidID)
-    local db = MRT.db.global.raidLootCache
-    db[raidID] = db[raidID] or { fetchedAt = 0, bosses = {} }
-    return db[raidID]
-end
+-- Storage shape:
+-- MRT.db.global.raidLoot[raidID] = {
+--     [bossIndex] = { itemID1, itemID2, ... },
+--     ...
+-- }
 
 function RaidLoot:OnInitialize()
-    MRT.db.global.raidLootCache = MRT.db.global.raidLootCache or {}
+    MRT.db.global.raidLoot = MRT.db.global.raidLoot or {}
 end
 
-function RaidLoot:ScanRaid(raidID)
+function RaidLoot:OnEnable()
+    local Comm = MRT.Comm
+    if Comm and Comm.MSG then
+        Comm.MSG.RAIDLOOT_SYNC = Comm.MSG.RAIDLOOT_SYNC or "rlSync"
+        Comm:On(Comm.MSG.RAIDLOOT_SYNC, function(p, s) self:OnRemoteSync(p, s) end)
+    end
+end
+
+local function ensureBossSlot(raidID, bossIndex)
+    local db = MRT.db.global.raidLoot
+    db[raidID] = db[raidID] or {}
+    db[raidID][bossIndex] = db[raidID][bossIndex] or {}
+    return db[raidID][bossIndex]
+end
+
+local function parseItemID(input)
+    if type(input) == "number" then return input end
+    if type(input) ~= "string" then return nil end
+    local id = input:match("item:(%d+)")
+    if id then return tonumber(id) end
+    return tonumber(input)
+end
+
+-- ===========================================================
+-- Read API
+-- ===========================================================
+
+function RaidLoot:GetRaid(raidID)
+    return ns.RaidsByID[raidID]
+end
+
+function RaidLoot:GetBoss(raidID, bossIndex)
     local raid = ns.RaidsByID[raidID]
     if not raid then return nil end
-    if not ejAvailable() then return getCache(raidID) end
+    return raid.bosses[bossIndex]
+end
 
-    local ok = pcall(_G.EJ_SelectInstance, raid.ejInstanceID)
-    if not ok then return getCache(raidID) end
+function RaidLoot:GetItems(raidID, bossIndex)
+    local db = MRT.db.global.raidLoot
+    if not db[raidID] then return {} end
+    return db[raidID][bossIndex] or {}
+end
 
-    local cache = getCache(raidID)
-    cache.fetchedAt = time()
-    cache.bosses = {}
+function RaidLoot:HasAnyItems(raidID)
+    local db = MRT.db.global.raidLoot[raidID]
+    if not db then return false end
+    for _, items in pairs(db) do
+        if #items > 0 then return true end
+    end
+    return false
+end
 
-    for i = 1, 30 do
-        local name, _, encounterID = _G.EJ_GetEncounterInfoByIndex(i)
-        if not name or not encounterID then break end
+-- ===========================================================
+-- Mutations (RL only)
+-- ===========================================================
 
-        local boss = { name = name, encounterID = encounterID, items = {} }
-        pcall(_G.EJ_SelectEncounter, encounterID)
+local function canEdit()
+    return MRT:IsRaidLeader() or MRT:IsRaidAssistant() or not IsInRaid()
+end
 
-        for j = 1, 60 do
-            local itemID, itemName, link
-            if _G.EJ_GetLootInfoByIndex then
-                local info = _G.EJ_GetLootInfoByIndex(j)
-                if type(info) == "table" then
-                    itemID, itemName, link = info.itemID, info.name, info.link
-                end
-            end
-            if not itemID and _G.EJ_GetLootInfo then
-                local id, _, n, l = pcall(_G.EJ_GetLootInfo, j)
-                if id then itemID, itemName, link = id, n, l end
-            end
-            if not itemID then break end
-            table.insert(boss.items, { itemID = itemID, name = itemName, link = link })
+function RaidLoot:AddItem(raidID, bossIndex, itemInput)
+    if not canEdit() then
+        MRT:Print(ns.L["sr_need_lead"])
+        return false
+    end
+    local itemID = parseItemID(itemInput)
+    if not itemID then
+        MRT:Print(ns.L["loot_bad_item"])
+        return false
+    end
+    local items = ensureBossSlot(raidID, bossIndex)
+    for _, id in ipairs(items) do
+        if id == itemID then return false end
+    end
+    table.insert(items, itemID)
+    self:Broadcast(raidID)
+    return true
+end
+
+function RaidLoot:RemoveItem(raidID, bossIndex, itemID)
+    if not canEdit() then return false end
+    local items = ensureBossSlot(raidID, bossIndex)
+    for i, id in ipairs(items) do
+        if id == itemID then
+            table.remove(items, i)
+            self:Broadcast(raidID)
+            return true
         end
-        table.insert(cache.bosses, boss)
     end
-    return cache
+    return false
 end
 
-function RaidLoot:Get(raidID)
-    local cache = getCache(raidID)
-    if #cache.bosses == 0 then
-        return self:ScanRaid(raidID)
-    end
-    return cache
+function RaidLoot:ClearRaid(raidID)
+    if not canEdit() then return false end
+    MRT.db.global.raidLoot[raidID] = {}
+    self:Broadcast(raidID)
+    return true
 end
 
-function RaidLoot:Refresh(raidID)
-    MRT.db.global.raidLootCache[raidID] = nil
-    return self:ScanRaid(raidID)
+-- ===========================================================
+-- Sync
+-- ===========================================================
+
+function RaidLoot:Broadcast(raidID)
+    local Comm = MRT.Comm
+    if not (Comm and Comm.MSG and Comm.MSG.RAIDLOOT_SYNC) then return end
+    Comm:Send(Comm.MSG.RAIDLOOT_SYNC, {
+        raidID = raidID,
+        bosses = MRT.db.global.raidLoot[raidID] or {},
+    })
+    MRT:SendMessage("MRT_RAIDLOOT_CHANGED", raidID)
+end
+
+function RaidLoot:OnRemoteSync(payload, sender)
+    if type(payload) ~= "table" or not payload.raidID then return end
+    MRT.db.global.raidLoot[payload.raidID] = payload.bosses or {}
+    MRT:SendMessage("MRT_RAIDLOOT_CHANGED", payload.raidID)
+end
+
+function RaidLoot:RequestSync(raidID)
+    -- Anyone (esp. RL) can rebroadcast their current data so late joiners catch up.
+    if self:HasAnyItems(raidID) then
+        self:Broadcast(raidID)
+    end
 end
