@@ -1,0 +1,50 @@
+## Interface: 20504
+## Title: Meteora Raid Tool
+## Notes: Guild raid management: loot council, soft-reserves, casino rolls and consumable tracking.
+## Notes-ruRU: Гильдейский рейд-инструмент: лут-совет, софт-резервы, казино-роллы и трекинг расходников.
+## Author: Meteora
+## Version: 0.1.0
+## SavedVariables: MeteoraRaidToolDB
+## SavedVariablesPerCharacter: MeteoraRaidToolCharDB
+## OptionalDeps: Ace3
+## X-Category: Raid
+## X-Embeds: Ace3, LibDeflate, LibSerialize
+
+#@no-lib-strip@
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
+Libs\AceAddon-3.0\AceAddon-3.0.xml
+Libs\AceEvent-3.0\AceEvent-3.0.xml
+Libs\AceTimer-3.0\AceTimer-3.0.xml
+Libs\AceBucket-3.0\AceBucket-3.0.xml
+Libs\AceHook-3.0\AceHook-3.0.xml
+Libs\AceDB-3.0\AceDB-3.0.xml
+Libs\AceDBOptions-3.0\AceDBOptions-3.0.xml
+Libs\AceLocale-3.0\AceLocale-3.0.xml
+Libs\AceConsole-3.0\AceConsole-3.0.xml
+Libs\AceComm-3.0\AceComm-3.0.xml
+Libs\AceSerializer-3.0\AceSerializer-3.0.xml
+Libs\AceGUI-3.0\AceGUI-3.0.xml
+Libs\AceConfig-3.0\AceConfig-3.0.xml
+Libs\LibDeflate\LibDeflate.lua
+Libs\LibSerialize\LibSerialize.lua
+#@end-no-lib-strip@
+
+Locale\enUS.lua
+Locale\ruRU.lua
+
+Data\Consumables.lua
+
+Core.lua
+
+Modules\Comm.lua
+Modules\SoftReserve.lua
+Modules\Loot.lua
+Modules\Consumables.lua
+Modules\Casino.lua
+
+UI\MainFrame.lua
+UI\LootFrame.lua
+UI\SoftReserveFrame.lua
+UI\ConsumablesFrame.lua
+UI\CasinoFrame.lua

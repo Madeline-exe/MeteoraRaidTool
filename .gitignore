@@ -1,0 +1,17 @@
+# Build output from BigWigs packager
+.release/
+*.zip
+
+# Embedded libraries are fetched by packager via .pkgmeta — don't commit them
+Libs/
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Local dev settings
+*.local.lua
