@@ -9,9 +9,9 @@ local Skin = ns.Skin
 -- Replaces the AceGUI BuildReservesTab.
 -- ============================================================
 
-local panel, topBar, scroll, child
+local panel, topBar, bar2, scroll, child
 local raidDD, btnToggle, btnEdit, btnClear, btnImport, btnAskPug
-local counterFS, maxFS, maxInput
+local counterFS, maxFS, maxInput, statusLblFS
 local editMode = false
 local sectionPool, rowPool, editRowPool = {}, {}, {}
 
@@ -220,9 +220,14 @@ local function buildPanel(parentFrame)
 
     raidDD = CreateFrame("Frame", "MRTReservesRaidDD", topBar, "UIDropDownMenuTemplate")
     raidDD:SetPoint("LEFT", topBar, "LEFT", -12, 0)
-    UIDropDownMenu_SetWidth(raidDD, 180)
+    UIDropDownMenu_SetWidth(raidDD, 160)
 
-    btnToggle = Skin:CreateButton(topBar, L["btn_open"], 140, 22)
+    -- Player-side fallback label for when the dropdown is hidden.
+    statusLblFS = topBar:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
+    statusLblFS:SetPoint("LEFT", topBar, "LEFT", 8, 0)
+    statusLblFS:SetTextColor(unpack(Skin.color.textFg))
+
+    btnToggle = Skin:CreateButton(topBar, L["btn_open"], 120, 22)
     btnToggle:SetPoint("LEFT", raidDD, "RIGHT", 8, 2)
     btnToggle:SetScript("OnClick", function()
         local SR = MRT.SoftReserve
@@ -237,13 +242,13 @@ local function buildPanel(parentFrame)
         UI:Refresh()
     end)
 
-    btnAskPug = Skin:CreateButton(topBar, L["btn_ask_pug"], 150, 22)
+    btnAskPug = Skin:CreateButton(topBar, L["btn_ask_pug"], 140, 22)
     btnAskPug:SetPoint("LEFT", btnEdit, "RIGHT", 4, 0)
     btnAskPug:SetScript("OnClick", function()
         if MRT.WhisperReserve then MRT.WhisperReserve:AskAllPugs() end
     end)
 
-    btnImport = Skin:CreateButton(topBar, L["btn_import_atlas"], 170, 22)
+    btnImport = Skin:CreateButton(topBar, L["btn_import_atlas"], 160, 22)
     btnImport:SetPoint("LEFT", btnAskPug, "RIGHT", 4, 0)
     btnImport:SetScript("OnClick", function()
         local SR = MRT.SoftReserve
@@ -264,7 +269,7 @@ local function buildPanel(parentFrame)
         StaticPopup_Show("MRT_CONFIRM_IMPORT_FRAME")
     end)
 
-    btnClear = Skin:CreateButton(topBar, L["btn_clear_all"], 120, 22)
+    btnClear = Skin:CreateButton(topBar, L["btn_clear_all"], 110, 22)
     btnClear:SetPoint("RIGHT", topBar, "RIGHT", 0, 0)
     btnClear:SetScript("OnClick", function()
         StaticPopupDialogs = StaticPopupDialogs or {}
@@ -276,24 +281,29 @@ local function buildPanel(parentFrame)
         StaticPopup_Show("MRT_CLEAR_RES_FRAME")
     end)
 
-    -- Second row: player's own reserve counter (left), RL's max-per-player
-    -- editor (right). Test-mode controls were dropped from UI in v1.0 —
-    -- /mrt test still works for debugging.
-    counterFS = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    counterFS:SetPoint("LEFT", panel, "TOPLEFT", PAD + 4, -(PAD + TOPBAR_H + 8))
+    -- Second row: counter (left) + RL max-per-player editor (right).
+    -- Test-mode controls were dropped from UI in v1.0 — /mrt test still
+    -- works for debugging.
+    bar2 = CreateFrame("Frame", nil, panel)
+    bar2:SetPoint("TOPLEFT",  topBar, "BOTTOMLEFT",  0, -8)
+    bar2:SetPoint("TOPRIGHT", topBar, "BOTTOMRIGHT", 0, -8)
+    bar2:SetHeight(22)
 
-    maxFS = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    maxFS:SetText(L["sr_max_label"])
-    maxFS:SetTextColor(unpack(Skin.color.accent))
+    counterFS = bar2:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    counterFS:SetPoint("LEFT", bar2, "LEFT", 4, 0)
 
-    maxInput = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
+    maxInput = CreateFrame("EditBox", nil, bar2, "InputBoxTemplate")
     maxInput:SetSize(40, 22)
     maxInput:SetAutoFocus(false)
     maxInput:SetNumeric(true)
     maxInput:SetMaxLetters(2)
     maxInput:SetFontObject("GameFontHighlight")
     maxInput:SetJustifyH("CENTER")
-    maxInput:SetPoint("RIGHT", panel, "TOPRIGHT", -PAD - 8, -(PAD + TOPBAR_H + 8))
+    maxInput:SetPoint("RIGHT", bar2, "RIGHT", -8, 0)
+
+    maxFS = bar2:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    maxFS:SetText(L["sr_max_label"])
+    maxFS:SetTextColor(unpack(Skin.color.accent))
     maxFS:SetPoint("RIGHT", maxInput, "LEFT", -8, 0)
 
     local function commitMax()
@@ -313,7 +323,7 @@ local function buildPanel(parentFrame)
 
     -- Scroll
     scroll = CreateFrame("ScrollFrame", "MRTReservesScroll", panel, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", maxInput, "BOTTOMLEFT", -PAD - 4, -8)
+    scroll:SetPoint("TOPLEFT", bar2, "BOTTOMLEFT", 0, -8)
     scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -28, 8)
 
     child = CreateFrame("Frame", nil, scroll)
@@ -421,6 +431,18 @@ local function refresh()
     btnAskPug:SetShown(rl)
     btnImport:SetShown(rl)
     btnClear:SetShown(rl)
+
+    -- Player-side status label (only shown when RL controls are hidden).
+    if not rl then
+        local raidName = raid and ns.RaidName(raid) or L["none"]
+        statusLblFS:SetText(L["player_current_raid"]:format(
+            raidName,
+            SR:IsOpen() and "|cff00ff00" .. L["state_open"] .. "|r"
+                       or "|cffff5555" .. L["state_closed"] .. "|r"))
+        statusLblFS:Show()
+    else
+        statusLblFS:Hide()
+    end
 
     -- Counter
     local me = UnitName("player")
