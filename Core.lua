@@ -180,6 +180,11 @@ function MRT:OnSlashCommand(input)
         end
     elseif cmd == "test" then
         if self.TestMode then self.TestMode:HandleSlash(rest) end
+    elseif cmd == "atlasdump" then
+        if self.AtlasLootImport then
+            local raidID = self.SoftReserve and self.SoftReserve:GetCurrentRaid() or nil
+            self.AtlasLootImport:Dump(raidID)
+        end
     elseif cmd == "config" or cmd == "options" then
         self:OpenConfig()
     elseif cmd == "version" then

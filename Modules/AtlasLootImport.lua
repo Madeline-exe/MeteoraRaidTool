@@ -95,6 +95,68 @@ end
 -- Returns: ok (bool), bossesFilled (int), totalItems (int), errMsg (string)
 -- ============================================================
 
+-- ============================================================
+-- Diagnostics: dump what AtlasLoot exposes so the user can paste it back.
+-- Triggered via /mrt atlasdump
+-- ============================================================
+
+function Importer:Dump(raidID)
+    MRT:Print("|cffffd200=== AtlasLoot dump ===|r")
+    local addon = isAtlasLootLoaded()
+    MRT:Print("AtlasLoot addon loaded: " .. tostring(addon))
+    if _G.AtlasLoot then
+        local keys = {}
+        for k in pairs(_G.AtlasLoot) do table.insert(keys, k) end
+        table.sort(keys)
+        MRT:Print("AtlasLoot. fields: " .. table.concat(keys, ", "))
+        if _G.AtlasLoot.ItemDB then
+            local ikeys = {}
+            for k in pairs(_G.AtlasLoot.ItemDB) do table.insert(ikeys, k) end
+            MRT:Print("AtlasLoot.ItemDB fields: " .. table.concat(ikeys, ", "))
+            if _G.AtlasLoot.ItemDB.Storage then
+                local snames = {}
+                for k in pairs(_G.AtlasLoot.ItemDB.Storage) do table.insert(snames, k) end
+                MRT:Print("Storage modules: " .. table.concat(snames, ", "))
+                for _, modName in ipairs(snames) do
+                    local mod = _G.AtlasLoot.ItemDB.Storage[modName]
+                    if mod and type(mod) == "table" and mod.items then
+                        local ckeys = {}
+                        for k in pairs(mod.items) do table.insert(ckeys, tostring(k)) end
+                        table.sort(ckeys)
+                        MRT:Print("  " .. modName .. " content: " .. table.concat(ckeys, ", "))
+                    end
+                end
+            end
+        end
+    end
+    if _G.AtlasLoot_Data then
+        local lkeys = {}
+        for k in pairs(_G.AtlasLoot_Data) do table.insert(lkeys, tostring(k)) end
+        MRT:Print("AtlasLoot_Data keys: " .. table.concat(lkeys, ", "))
+    end
+
+    if raidID then
+        local storage = findItemDB()
+        if storage then
+            local content, modName, contentKey = findRaidContent(storage, raidID)
+            MRT:Print("findRaidContent(" .. raidID .. ") → " ..
+                (content and ("HIT in " .. tostring(modName) .. " key=" .. tostring(contentKey)) or "MISS"))
+            if content then
+                local n, sample = 0, {}
+                for k, v in pairs(content) do
+                    n = n + 1
+                    if n <= 3 and type(v) == "table" then
+                        local name = v.name or v.Name or "(no name)"
+                        table.insert(sample, tostring(k) .. ":" .. name)
+                    end
+                end
+                MRT:Print("  content has " .. n .. " entries; first: " .. table.concat(sample, " | "))
+            end
+        end
+    end
+    MRT:Print("|cffffd200=== end dump ===|r")
+end
+
 function Importer:ImportRaid(raidID)
     local raid = ns.RaidsByID[raidID]
     if not raid then return false, 0, 0, L["import_unknown_raid"] end
