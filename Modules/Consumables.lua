@@ -20,11 +20,15 @@ function Consumables:OnEnable()
 end
 
 function Consumables:OnAuraBucket(units)
+    local changed = false
     for unit in pairs(units) do
-        if UnitIsPlayer(unit) and (UnitInRaid(unit) or UnitInParty(unit)) then
+        if UnitIsPlayer(unit) and (UnitInRaid(unit) or UnitInParty(unit)
+           or unit == "player") then
             self:ScanUnit(unit)
+            changed = true
         end
     end
+    if changed then MRT:SendMessage("MRT_CONS_UPDATED") end
 end
 
 function Consumables:OnEncounterStart()

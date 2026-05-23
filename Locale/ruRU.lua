@@ -23,6 +23,7 @@ L["tab_status"]          = "Статус"
 L["tab_history"]         = "История лута"
 L["tab_sr_history"]      = "История SR"
 L["tab_stats"]           = "Статы"
+L["tab_wishlist"]        = "Wishlist"
 
 L["sr_history_empty"]    = "История резервов пока пуста. Снимок сохраняется когда РЛ закрывает резервы или начинается бой."
 L["sr_history_no_reserves"] = "(никто не резервировал)"
@@ -142,6 +143,14 @@ L["player_history_title"] = "История игрока"
 L["player_history_empty"] = "У этого игрока пока нет полученного лута."
 L["export_title_player"] = "История игрока — экспорт"
 L["stats_hint_click"]    = "Клик по строке — открыть полную историю игрока."
+
+-- Wishlist
+L["wish_header"]         = "Wishlist"
+L["wish_wanters"]        = "Wishlist"
+L["wish_empty_self"]     = "Пусто. Вставь линк предмета или ID выше и нажми Добавить."
+L["wish_empty_other"]    = "У этого игрока пока нет Wishlist."
+L["wish_max"]            = "Максимум %d предметов в Wishlist."
+L["popup_clear_wish"]    = "Очистить ВСЕ предметы из моего Wishlist?"
 L["sr_closed"]           = "Резервы закрыты."
 L["sr_need_lead"]        = "Нужны права рейдлида или ассиста."
 

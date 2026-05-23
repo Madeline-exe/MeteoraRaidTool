@@ -335,6 +335,7 @@ local function layoutItemRow(row, entry, width)
 
     local SR = MRT.SoftReserve
     local reservers = SR and SR:GetReservesForItem(entry.itemID) or {}
+    local lines = {}
     if #reservers > 0 then
         local marked = {}
         for _, p in ipairs(reservers) do
@@ -344,10 +345,16 @@ local function layoutItemRow(row, entry, width)
                 table.insert(marked, p)
             end
         end
-        row.srFS:SetText("|cffff8800" .. L["award_sr"] .. ":|r " .. table.concat(marked, ", "))
+        table.insert(lines, "|cffff8800" .. L["award_sr"] .. ":|r " .. table.concat(marked, ", "))
     else
-        row.srFS:SetText("|cff666666" .. L["award_no_sr"] .. "|r")
+        table.insert(lines, "|cff666666" .. L["award_no_sr"] .. "|r")
     end
+    local wishers = MRT.Wishlist and MRT.Wishlist:WantersOf(entry.itemID) or {}
+    if #wishers > 0 then
+        table.insert(lines, "|cff66ccff" .. (L["wish_wanters"] or "Wishlist")
+            .. ":|r " .. table.concat(wishers, ", "))
+    end
+    row.srFS:SetText(table.concat(lines, "\n"))
 
     -- SR roll button enabled only when there are reservers
     if #reservers > 0 then

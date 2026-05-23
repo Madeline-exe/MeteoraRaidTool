@@ -23,6 +23,7 @@ L["tab_status"]          = "Status"
 L["tab_history"]         = "Loot history"
 L["tab_sr_history"]      = "SR history"
 L["tab_stats"]           = "Stats"
+L["tab_wishlist"]        = "Wishlist"
 
 L["sr_history_empty"]    = "No reserve history yet. A snapshot is saved when the RL closes reserves or combat begins."
 L["sr_history_no_reserves"] = "(nobody reserved)"
@@ -142,6 +143,14 @@ L["player_history_title"] = "Player history"
 L["player_history_empty"] = "No loot recorded for this player yet."
 L["export_title_player"] = "Player history — export"
 L["stats_hint_click"]    = "Click a row to open that player's full history."
+
+-- Wishlist
+L["wish_header"]         = "Wishlist"
+L["wish_wanters"]        = "Wishlist"
+L["wish_empty_self"]     = "Empty. Paste an item link or ID above and click Add."
+L["wish_empty_other"]    = "This player has no wishlist yet."
+L["wish_max"]            = "Maximum %d items in a wishlist."
+L["popup_clear_wish"]    = "Clear ALL items from my wishlist?"
 L["sr_closed"]           = "Reserves are closed."
 L["sr_need_lead"]        = "You need to be raid leader or assistant."
 

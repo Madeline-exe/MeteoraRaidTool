@@ -24,6 +24,8 @@ local MSG = {
     RAIDLOOT_REQUEST = "rlGet",
     RESERVE_REQUEST  = "srGet",
     RESERVE_SNAPSHOT = "srSnap",
+    WISHLIST_SYNC    = "wlSync",
+    WISHLIST_REQUEST = "wlGet",
     CONS_REPORT      = "cnRep",
 }
 Comm.MSG = MSG

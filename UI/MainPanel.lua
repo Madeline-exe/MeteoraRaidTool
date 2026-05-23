@@ -29,6 +29,7 @@ local MIN_WIDTH, MIN_HEIGHT = 900, 520
 local TABS = {
     { value = "reserves",    labelKey = "tab_reserves"    },
     { value = "distribute",  labelKey = "tab_distribute"  },
+    { value = "wishlist",    labelKey = "tab_wishlist"    },
     { value = "consumables", labelKey = "tab_consumables" },
     { value = "status",      labelKey = "tab_status"      },
     { value = "history",     labelKey = "tab_history"     },
@@ -198,6 +199,7 @@ local function showTab(tabValue)
     if UI.HideSRHistoryPanel   then UI:HideSRHistoryPanel()   end
     if UI.HideConsumablesPanel then UI:HideConsumablesPanel() end
     if UI.HideStatsPanel       then UI:HideStatsPanel()       end
+    if UI.HideWishlistPanel    then UI:HideWishlistPanel()    end
 
     -- Update tab button states
     for value, btn in pairs(tabButtons) do
@@ -216,6 +218,7 @@ local function showTab(tabValue)
         elseif tabValue == "history" then     UI:BuildHistoryTab(container)
         elseif tabValue == "sr_history" then  UI:BuildSRHistoryTab(container)
         elseif tabValue == "stats" then       UI:BuildStatsTab(container)
+        elseif tabValue == "wishlist" then    UI:BuildWishlistTab(container)
         end
     end)
     if not ok then

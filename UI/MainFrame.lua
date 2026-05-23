@@ -17,5 +17,7 @@ function UI:OnEnable()
     self:RegisterMessage("MRT_RAIDLOOT_CHANGED",  "RefreshLater")
     self:RegisterMessage("MRT_POOL_CHANGED",      "RefreshLater")
     self:RegisterMessage("MRT_ROLL_UPDATE",       "RefreshLater")
+    self:RegisterMessage("MRT_CONS_UPDATED",      "RefreshLater")
+    self:RegisterMessage("MRT_WISHLIST_CHANGED",  "RefreshLater")
     self:RegisterMessage("MRT_TEST_TOGGLED",      "OnTestToggled")
 end

@@ -135,25 +135,62 @@ end
 -- Name-based fallback. TBC Anniversary sometimes returns slightly different
 -- spell IDs than the captured ones in C.* tables (server-side variants /
 -- ranks), so we also match by substring of the buff name.
+-- Name-based fallback. TBC Anniversary often returns slightly different
+-- spell IDs than the captured ones in C.* tables (server-side variants /
+-- ranks), so we also match by substring of the buff name. "Well Fed" is
+-- the generic food buff name in TBC — most reliable food signal.
 C.NAME_PATTERNS = {
-    flask  = { "Flask of", "Фласка" },
-    battle = { "Elixir of Major Strength", "Elixir of Major Agility",
-               "Elixir of Major Firepower", "Elixir of Major Shadow Power",
-               "Elixir of Major Frost Power", "Adept's Elixir",
-               "Elixir of Demonslaying", "Bloodied Arcanum", "Эликсир" },
-    guard  = { "Elixir of Major Defense", "Elixir of Major Mageblood",
-               "Elixir of Empowerment", "Earthen Elixir",
-               "Elixir of the Mongoose", "Elixir of Superior Defense" },
-    food   = { "Well Fed", "Spicy ", "Roasted ", "Grilled ", "Crunchy ",
-               "Crispy ", "Blackened ", "Warp ", "Talbuk ", "Poached ",
-               "Ravager ", "Golden Fish", "Stormchops", "Fisherman",
-               "Fish Feast", "Honey Mead", "Хорошо накормлен" },
-    scroll = { "Scroll of " },
-    oil    = { "Wizard Oil", "Mana Oil", "Sharpening Stone", "Weightstone",
-               "Sharpen Blade" },
-    pot    = { "Potion of", "Heroic Potion", "Ironshield Potion",
-               "Insane Strength", "Destruction Potion", "Haste Potion" },
-    drums  = { "Drums of " },
+    flask  = {
+        "Flask of",          -- en: all TBC flasks
+        "Фласка",            -- ru
+        "Shattrath Flask",
+    },
+    battle = {
+        "Elixir of Major Strength",   "Elixir of Major Agility",
+        "Elixir of Major Firepower",  "Elixir of Major Shadow Power",
+        "Elixir of Major Frost Power","Elixir of Mastery",
+        "Adept's Elixir",             "Elixir of Demonslaying",
+        "Bloodied Arcanum",           "Lesser Arcane Elixir",
+        "Greater Arcane Elixir",      "Onslaught Elixir",
+        "Эликсир мастерства",         "Эликсир огромной силы",
+        "Эликсир огромной ловкости",  "Эликсир магической мощи",
+        "Эликсир тени",
+    },
+    guard  = {
+        "Elixir of Major Defense",   "Elixir of Major Mageblood",
+        "Elixir of Empowerment",     "Earthen Elixir",
+        "Elixir of the Mongoose",    "Elixir of Superior Defense",
+        "Elixir of Major Fortitude", "Elixir of Ironskin",
+        "Elixir of Draenic Wisdom",  "Elixir of Healing Power",
+        "Эликсир мангуста",          "Эликсир огромной защиты",
+        "Эликсир огромной выносливости",
+    },
+    food   = {
+        "Well Fed",                  -- en: generic food buff (covers ALL TBC food)
+        "Хорошо накормлен",          -- ru
+    },
+    scroll = {
+        "Scroll of ",                -- en
+        "Свиток ",                   -- ru
+    },
+    oil    = {
+        "Wizard Oil",      "Mana Oil",       "Sharpening Stone",
+        "Weightstone",     "Sharpen Blade",  "Brilliant Wizard",
+        "Brilliant Mana",  "Superior Wizard","Superior Mana",
+        "Adamantite Sharpening", "Adamantite Weightstone",
+        "Точильный камень", "Утяжелитель",
+        "Чародейское масло", "Магическое масло",
+    },
+    pot    = {
+        "Potion of",       "Heroic Potion",  "Ironshield Potion",
+        "Insane Strength", "Destruction Potion", "Haste Potion",
+        "Free Action",     "Living Action",  "Major Healing Potion",
+        "Зелье",
+    },
+    drums  = {
+        "Drums of ",
+        "Барабаны ",
+    },
 }
 
 function C:LookupByName(buffName)
