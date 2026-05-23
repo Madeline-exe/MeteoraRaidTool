@@ -23,7 +23,7 @@ local statusFS, versionFS
 local tabButtons = {}  -- { value → Button }
 local currentTab = "reserves"
 
-local MIN_WIDTH, MIN_HEIGHT = 640, 380
+local MIN_WIDTH, MIN_HEIGHT = 900, 520
 
 -- Tab definition (order matters)
 local TABS = {
@@ -81,7 +81,10 @@ local function restorePosition()
     else
         main:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
     end
-    main:SetSize(ui.width or 760, ui.height or 540)
+    -- Migrate users with stuck small sizes from earlier versions.
+    local w = math.max(ui.width  or 940, MIN_WIDTH)
+    local h = math.max(ui.height or 580, MIN_HEIGHT)
+    main:SetSize(w, h)
 end
 
 -- ============================================================
@@ -93,7 +96,7 @@ local function build()
 
     main = CreateFrame("Frame", "MeteoraRaidToolMain", UIParent, "BackdropTemplate")
     Skin:ApplyDark(main)
-    main:SetSize(760, 540)
+    main:SetSize(940, 580)
     main:SetMovable(true)
     main:SetResizable(true)
     if main.SetMinResize then main:SetMinResize(MIN_WIDTH, MIN_HEIGHT) end
@@ -123,7 +126,7 @@ local function build()
     titleFS:SetTextColor(unpack(Skin.color.accent))
     applyTitle()
 
-    closeBtn = Skin:CreateButton(titleBar, "×", 24, 22)
+    closeBtn = Skin:CreateButton(titleBar, "X", 24, 22)
     closeBtn:SetPoint("RIGHT", titleBar, "RIGHT", -4, 0)
     local cfs = closeBtn:GetFontString()
     if cfs then cfs:SetTextColor(unpack(Skin.color.danger)) end

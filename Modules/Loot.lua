@@ -308,6 +308,11 @@ function Loot:Award(entry, winner, note)
         end
     end
 
+    -- Queue for auto-placement next time the RL opens trade with the winner.
+    if MRT.AutoTrade and MRT.AutoTrade.Queue then
+        MRT.AutoTrade:Queue(winner, entry.itemID, entry.link)
+    end
+
     if entry.uid then self:RemoveFromPool(entry.uid) end
 end
 

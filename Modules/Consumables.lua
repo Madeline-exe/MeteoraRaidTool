@@ -84,12 +84,10 @@ function Consumables:ScanUnit(unit)
     for i = 1, 40 do
         local auraName, _, _, _, _, _, _, _, _, spellID = unitBuff(unit, i)
         if not auraName then break end
-        if spellID then
-            local category, label = DB:Lookup(spellID)
-            if category then
-                data.buffs[category] = label
-            end
-        end
+        local category, label
+        if spellID then category, label = DB:Lookup(spellID) end
+        if not category then category, label = DB:LookupByName(auraName) end
+        if category then data.buffs[category] = label or auraName end
     end
     roster[name] = data
 end
@@ -123,4 +121,18 @@ function Consumables:OpenWindow()
     if MRT.UI and MRT.UI.OpenTab then
         MRT.UI:OpenTab("consumables")
     end
+end
+
+-- Diagnostic: print every buff on the player so we can extend the spell-ID
+-- and name-pattern tables when the scanner misses something.
+function Consumables:DumpBuffs()
+    MRT:Print("|cffffd200=== Player buffs ===|r")
+    local unitBuff = ns.compat.UnitBuff
+    for i = 1, 40 do
+        local name, _, _, _, _, _, _, _, _, spellID = unitBuff("player", i)
+        if not name then break end
+        local cat = DB:Lookup(spellID) or (DB.LookupByName and DB:LookupByName(name)) or "-"
+        MRT:Print(string.format("  [%d] %s (id=%s) → %s", i, name, tostring(spellID), cat))
+    end
+    MRT:Print("|cffffd200=== end ===|r")
 end

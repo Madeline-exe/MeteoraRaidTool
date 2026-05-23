@@ -185,6 +185,10 @@ function MRT:OnSlashCommand(input)
             local raidID = self.SoftReserve and self.SoftReserve:GetCurrentRaid() or nil
             self.AtlasLootImport:Dump(raidID)
         end
+    elseif cmd == "buffs" then
+        if self.Consumables and self.Consumables.DumpBuffs then
+            self.Consumables:DumpBuffs()
+        end
     elseif cmd == "config" or cmd == "options" then
         self:OpenConfig()
     elseif cmd == "version" then

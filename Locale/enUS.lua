@@ -103,6 +103,10 @@ L["status_empty"]        = "No reserves yet. Players can pick items once the rai
 
 L["sr_max"]              = "Max %d reserves per player."
 L["sr_max_label"]        = "SR limit:"
+
+-- Auto-trade
+L["trade_placed"]        = "Auto-trade: placed %d items into trade with %s."
+L["trade_missing"]       = "Auto-trade: %d items missing from bags for %s."
 L["sr_closed"]           = "Reserves are closed."
 L["sr_need_lead"]        = "You need to be raid leader or assistant."
 

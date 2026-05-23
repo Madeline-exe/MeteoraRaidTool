@@ -131,3 +131,36 @@ function C:Lookup(spellID)
         end
     end
 end
+
+-- Name-based fallback. TBC Anniversary sometimes returns slightly different
+-- spell IDs than the captured ones in C.* tables (server-side variants /
+-- ranks), so we also match by substring of the buff name.
+C.NAME_PATTERNS = {
+    flask  = { "Flask of", "Фласка" },
+    battle = { "Elixir of Major Strength", "Elixir of Major Agility",
+               "Elixir of Major Firepower", "Elixir of Major Shadow Power",
+               "Elixir of Major Frost Power", "Adept's Elixir",
+               "Elixir of Demonslaying", "Bloodied Arcanum", "Эликсир" },
+    guard  = { "Elixir of Major Defense", "Elixir of Major Mageblood",
+               "Elixir of Empowerment", "Earthen Elixir",
+               "Elixir of the Mongoose", "Elixir of Superior Defense" },
+    food   = { "Well Fed", "Spicy ", "Roasted ", "Grilled ", "Crunchy ",
+               "Crispy ", "Blackened ", "Warp ", "Talbuk ", "Poached ",
+               "Ravager ", "Golden Fish", "Stormchops", "Fisherman",
+               "Fish Feast", "Honey Mead", "Хорошо накормлен" },
+    scroll = { "Scroll of " },
+    oil    = { "Wizard Oil", "Mana Oil", "Sharpening Stone", "Weightstone",
+               "Sharpen Blade" },
+    pot    = { "Potion of", "Heroic Potion", "Ironshield Potion",
+               "Insane Strength", "Destruction Potion", "Haste Potion" },
+    drums  = { "Drums of " },
+}
+
+function C:LookupByName(buffName)
+    if type(buffName) ~= "string" then return nil end
+    for category, patterns in pairs(self.NAME_PATTERNS) do
+        for _, p in ipairs(patterns) do
+            if buffName:find(p, 1, true) then return category, buffName end
+        end
+    end
+end

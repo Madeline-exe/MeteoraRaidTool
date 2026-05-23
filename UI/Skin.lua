@@ -124,7 +124,7 @@ function Skin:CreateSection(parent, initiallyExpanded)
 
     section.toggle = section.header:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     section.toggle:SetPoint("LEFT", section.header, "LEFT", 6, 0)
-    section.toggle:SetText(section.expanded and "▼" or "▶")
+    section.toggle:SetText(section.expanded and "[-]" or "[+]")
     section.toggle:SetTextColor(unpack(self.color.accent))
 
     section.title = section.header:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
@@ -156,7 +156,7 @@ function Skin:CreateSection(parent, initiallyExpanded)
 
     section.header:SetScript("OnClick", function()
         section.expanded = not section.expanded
-        section.toggle:SetText(section.expanded and "▼" or "▶")
+        section.toggle:SetText(section.expanded and "[-]" or "[+]")
         if section.onToggle then section.onToggle(section.expanded) end
     end)
     section.header:SetScript("OnEnter", function(h)

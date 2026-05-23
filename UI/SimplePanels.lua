@@ -463,9 +463,9 @@ function UI:BuildConsumablesTab(container)
         r.nameFS:SetText(Skin:ColorName(name))
         for _, col in ipairs(COLUMNS) do
             if data.buffs[col] then
-                r.cells[col]:SetText("|cff00ff00●|r")
+                r.cells[col]:SetText("|cff00ff00ok|r")
             else
-                r.cells[col]:SetText("|cff444444·|r")
+                r.cells[col]:SetText("|cff666666-|r")
             end
         end
         y = y - 26

@@ -130,7 +130,7 @@ local function createItemRow(parent)
     row.btnFree = Skin:CreateButton(row.frame, L["btn_roll_free"], 120, 22)
     row.btnFree:SetPoint("TOPRIGHT", row.btnSR, "TOPLEFT", -4, 0)
 
-    row.btnDel = Skin:CreateButton(row.frame, "✕", 24, 22)
+    row.btnDel = Skin:CreateButton(row.frame, "X", 24, 22)
     row.btnDel:SetPoint("BOTTOMRIGHT", row.frame, "BOTTOMRIGHT", -6, 4)
     row.btnDel:GetFontString():SetTextColor(unpack(Skin.color.danger))
 
@@ -240,8 +240,8 @@ local function fillRollPanel(p, roll)
             p.rowFS[i] = fs
             fs:Show()
             fs:SetPoint("TOPLEFT", p, "TOPLEFT", 14, y)
-            local marker = (i == 1) and "|cffffd200▶|r " or "   "
-            local star   = (roll.allowed and roll.allowed[e.p]) and "|cffff8800★|r " or ""
+            local marker = (i == 1) and "|cffffd200>|r " or "  "
+            local star   = (roll.allowed and roll.allowed[e.p]) and "|cffff8800*|r " or ""
             fs:SetText(string.format("%s%3d  %s%s", marker, e.r, star, Skin:ColorName(e.p)))
             y = y - ROLL_LINE_HEIGHT
         end

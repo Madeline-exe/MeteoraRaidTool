@@ -55,7 +55,7 @@ local function createItemRow(parent)
     Skin:ApplyDark(row.frame, Skin.color.bgAlt, Skin.color.border)
     row.frame:SetHeight(ROW_HEIGHT)
 
-    row.starBtn = Skin:CreateButton(row.frame, "☆", 36, 22)
+    row.starBtn = Skin:CreateButton(row.frame, "+", 36, 22)
     row.starBtn:SetPoint("LEFT", row.frame, "LEFT", 4, 0)
     row.starBtn:GetFontString():SetTextColor(unpack(Skin.color.accent))
 
@@ -98,7 +98,7 @@ local function createEditRow(parent)
     Skin:ApplyDark(row.frame, Skin.color.bgAlt, Skin.color.border)
     row.frame:SetHeight(EDITROW_HEIGHT)
 
-    row.rmBtn = Skin:CreateButton(row.frame, "✕", 28, 22)
+    row.rmBtn = Skin:CreateButton(row.frame, "X", 28, 22)
     row.rmBtn:SetPoint("LEFT", row.frame, "LEFT", 4, 0)
     row.rmBtn:GetFontString():SetTextColor(unpack(Skin.color.danger))
 
@@ -344,7 +344,7 @@ local function layoutItemRow(row, itemID, raidID, bossIndex)
     local reserved = SR:HasReserved(me, itemID)
     local reservers = SR:GetReservesForItem(itemID)
 
-    row.starBtn:GetFontString():SetText(reserved and "★" or "☆")
+    row.starBtn:GetFontString():SetText(reserved and "-" or "+")
     if SR:CanReserve() then row.starBtn:Enable() else row.starBtn:Disable() end
     row.starBtn:SetScript("OnClick", function()
         SR:ToggleReserve(itemID); UI:Refresh()
