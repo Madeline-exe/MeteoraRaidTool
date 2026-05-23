@@ -245,10 +245,15 @@ function UI:Refresh()
     end
 end
 
+local refreshPending = false
 function UI:RefreshLater()
-    if main and main:IsShown() then
-        self:Refresh()
-    end
+    if not main or not main:IsShown() then return end
+    if refreshPending then return end
+    refreshPending = true
+    C_Timer.After(0.1, function()
+        refreshPending = false
+        if main and main:IsShown() then UI:Refresh() end
+    end)
 end
 
 function UI:OpenTab(tabValue)

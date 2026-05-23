@@ -14,10 +14,11 @@ local function ambig(name) return Ambiguate(name, "short") end
 
 function SoftReserve:OnEnable()
     local Comm = MRT.Comm
-    Comm:On(Comm.MSG.RESERVE_SET,    function(p, s) self:OnRemoteSet(p, s) end)
-    Comm:On(Comm.MSG.RESERVE_DEL,    function(p, s) self:OnRemoteDel(p, s) end)
-    Comm:On(Comm.MSG.RESERVE_SYNC,   function(p, s) self:OnRemoteSync(p, s) end)
-    Comm:On(Comm.MSG.RESERVE_REQUEST,function(p, s) self:OnRemoteRequest(p, s) end)
+    Comm:On(Comm.MSG.RESERVE_SET,     function(p, s) self:OnRemoteSet(p, s) end)
+    Comm:On(Comm.MSG.RESERVE_DEL,     function(p, s) self:OnRemoteDel(p, s) end)
+    Comm:On(Comm.MSG.RESERVE_SYNC,    function(p, s) self:OnRemoteSync(p, s) end)
+    Comm:On(Comm.MSG.RESERVE_REQUEST, function(p, s) self:OnRemoteRequest(p, s) end)
+    Comm:On(Comm.MSG.RESERVE_SNAPSHOT,function(p, s) self:OnRemoteSnapshot(p, s) end)
 
     self:RegisterEvent("ENCOUNTER_START", "OnEncounterStart")
     self:RegisterEvent("GROUP_ROSTER_UPDATE", "OnGroupChanged")
@@ -71,6 +72,20 @@ local function deepCopyReserves(src)
     return out
 end
 
+local function appendSnapshotUnique(record)
+    local hist = MRT.db.global.reserveHistory
+    for i = #hist, math.max(1, #hist - 20), -1 do
+        local e = hist[i]
+        if e.raidID == record.raidID
+           and math.abs((e.timestamp or 0) - record.timestamp) < 30 then
+            return false
+        end
+    end
+    table.insert(hist, record)
+    while #hist > HISTORY_LIMIT do table.remove(hist, 1) end
+    return true
+end
+
 function SoftReserve:Snapshot(reason)
     if not currentRaidID then return end
     local hasAny = false
@@ -78,14 +93,23 @@ function SoftReserve:Snapshot(reason)
         if items and #items > 0 then hasAny = true; break end
     end
     if not hasAny then return end
-    local hist = MRT.db.global.reserveHistory
-    table.insert(hist, {
+    local record = {
         timestamp = time(),
         raidID    = currentRaidID,
         reason    = reason,
         reserves  = deepCopyReserves(reserves),
-    })
-    while #hist > HISTORY_LIMIT do table.remove(hist, 1) end
+    }
+    appendSnapshotUnique(record)
+    if MRT.Comm and MRT.Comm.MSG.RESERVE_SNAPSHOT then
+        MRT.Comm:Send(MRT.Comm.MSG.RESERVE_SNAPSHOT, record)
+    end
+end
+
+function SoftReserve:OnRemoteSnapshot(payload, sender)
+    if type(payload) ~= "table" or not payload.raidID then return end
+    if appendSnapshotUnique(payload) then
+        if MRT.UI and MRT.UI.RefreshLater then MRT.UI:RefreshLater() end
+    end
 end
 
 -- ============================================================

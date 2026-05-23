@@ -59,6 +59,17 @@ function Loot:OnEnable()
     self:RegisterEvent("CHAT_MSG_SYSTEM", "OnChatSystem")
     self:RegisterEvent("ENCOUNTER_START", "OnEncounterStart")
     self:RegisterEvent("ENCOUNTER_END",   "OnEncounterEnd")
+
+    if MRT.Comm and MRT.Comm.MSG.LOOT_AWARD then
+        MRT.Comm:On(MRT.Comm.MSG.LOOT_AWARD, function(p, s) self:OnRemoteAward(p, s) end)
+    end
+end
+
+function Loot:OnRemoteAward(payload, sender)
+    if type(payload) ~= "table" or not payload.winner or not payload.itemID then return end
+    if appendHistoryUnique(payload) then
+        if MRT.UI and MRT.UI.RefreshLater then MRT.UI:RefreshLater() end
+    end
 end
 
 -- ============================================================
@@ -276,9 +287,23 @@ end
 -- Award (called from Distribute UI or chat-detected auto-award)
 -- ============================================================
 
+local function appendHistoryUnique(record)
+    local hist = MRT.db.global.lootHistory
+    -- Dedup: same player + same item within 30s of the recorded timestamp.
+    for i = #hist, math.max(1, #hist - 50), -1 do
+        local e = hist[i]
+        if e.winner == record.winner and e.itemID == record.itemID
+           and math.abs((e.timestamp or 0) - record.timestamp) < 30 then
+            return false
+        end
+    end
+    table.insert(hist, record)
+    return true
+end
+
 function Loot:Award(entry, winner, note)
     if not entry or not winner then return end
-    table.insert(MRT.db.global.lootHistory, {
+    local record = {
         timestamp = time(),
         itemID    = entry.itemID,
         link      = entry.link,
@@ -286,7 +311,12 @@ function Loot:Award(entry, winner, note)
         note      = note,
         raid      = entry.raidID,
         boss      = entry.bossName,
-    })
+    }
+    appendHistoryUnique(record)
+    -- Broadcast so every group member's local lootHistory stays in sync.
+    if MRT.Comm and MRT.Comm.MSG.LOOT_AWARD then
+        MRT.Comm:Send(MRT.Comm.MSG.LOOT_AWARD, record)
+    end
     local raidLink = entry.link or ("item:" .. entry.itemID)
     if MRT.db.profile.loot.announceWinner then
         SendChatMessage(L["loot_announce"]:format(raidLink, winner, note or ""), MRT.db.profile.loot.announceChannel)

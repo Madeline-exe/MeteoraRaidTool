@@ -14,7 +14,17 @@ function Consumables:OnEnable()
     self:RegisterEvent("ENCOUNTER_END",   "OnEncounterEnd")
     self:RegisterEvent("PLAYER_REGEN_DISABLED", "OnCombatStart")
     self:RegisterEvent("PLAYER_REGEN_ENABLED",  "OnCombatEnd")
-    self:RegisterEvent("UNIT_AURA", "OnUnitAura")
+    -- Bucket UNIT_AURA: a raid of 25 churning buffs can fire dozens of
+    -- these per second; processing each one was a major source of lag.
+    self:RegisterBucketEvent("UNIT_AURA", 0.5, "OnAuraBucket")
+end
+
+function Consumables:OnAuraBucket(units)
+    for unit in pairs(units) do
+        if UnitIsPlayer(unit) and (UnitInRaid(unit) or UnitInParty(unit)) then
+            self:ScanUnit(unit)
+        end
+    end
 end
 
 function Consumables:OnEncounterStart()
@@ -34,11 +44,6 @@ end
 function Consumables:OnCombatEnd()
 end
 
-function Consumables:OnUnitAura(_, unit)
-    if not unit or not UnitIsPlayer(unit) then return end
-    if not UnitInRaid(unit) and not UnitInParty(unit) then return end
-    self:ScanUnit(unit)
-end
 
 function Consumables:RefreshRoster()
     roster = {}
