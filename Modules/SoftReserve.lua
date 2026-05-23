@@ -21,6 +21,39 @@ function SoftReserve:OnEnable()
     self:RegisterEvent("ENCOUNTER_START", "OnEncounterStart")
 
     MRT.db.global.reserveHistory = MRT.db.global.reserveHistory or {}
+    -- Authoritative max-per-player lives in global so RL can broadcast a
+    -- value that overrides each client's local default.
+    MRT.db.global.softReserve = MRT.db.global.softReserve or {}
+    if not MRT.db.global.softReserve.maxPerPlayer then
+        MRT.db.global.softReserve.maxPerPlayer = MRT.db.profile.softReserve.maxPerPlayer or 2
+    end
+end
+
+function SoftReserve:GetMaxPerPlayer()
+    return MRT.db.global.softReserve and MRT.db.global.softReserve.maxPerPlayer
+        or MRT.db.profile.softReserve.maxPerPlayer or 2
+end
+
+local function buildSyncPayload()
+    return {
+        currentRaidID = currentRaidID,
+        reservesOpen  = reservesOpen,
+        reserves      = reserves,
+        maxPerPlayer  = MRT.db.global.softReserve and MRT.db.global.softReserve.maxPerPlayer,
+    }
+end
+
+function SoftReserve:SetMaxPerPlayer(n)
+    if not MRT:CanLead() then
+        MRT:Print(L["sr_need_lead"])
+        return false
+    end
+    n = tonumber(n) or 2
+    if n < 1 then n = 1 elseif n > 20 then n = 20 end
+    MRT.db.global.softReserve.maxPerPlayer = n
+    MRT.Comm:Send(MRT.Comm.MSG.RESERVE_SYNC, buildSyncPayload())
+    MRT:SendMessage("MRT_SR_STATE_CHANGED")
+    return true
 end
 
 local HISTORY_LIMIT = 100
@@ -71,11 +104,7 @@ function SoftReserve:SetCurrentRaid(raidID, open)
     end
     currentRaidID = raidID
     if open ~= nil then reservesOpen = open end
-    MRT.Comm:Send(MRT.Comm.MSG.RESERVE_SYNC, {
-        currentRaidID = currentRaidID,
-        reservesOpen  = reservesOpen,
-        reserves      = reserves,
-    })
+    MRT.Comm:Send(MRT.Comm.MSG.RESERVE_SYNC, buildSyncPayload())
     MRT:SendMessage("MRT_SR_STATE_CHANGED")
     return true
 end
@@ -90,11 +119,7 @@ function SoftReserve:SetOpen(open)
     if wasOpen and not reservesOpen then
         self:Snapshot("closed")
     end
-    MRT.Comm:Send(MRT.Comm.MSG.RESERVE_SYNC, {
-        currentRaidID = currentRaidID,
-        reservesOpen  = reservesOpen,
-        reserves      = reserves,
-    })
+    MRT.Comm:Send(MRT.Comm.MSG.RESERVE_SYNC, buildSyncPayload())
     MRT:SendMessage("MRT_SR_STATE_CHANGED")
     return true
 end
@@ -105,11 +130,7 @@ function SoftReserve:ClearAll()
         return false
     end
     reserves = {}
-    MRT.Comm:Send(MRT.Comm.MSG.RESERVE_SYNC, {
-        currentRaidID = currentRaidID,
-        reservesOpen  = reservesOpen,
-        reserves      = reserves,
-    })
+    MRT.Comm:Send(MRT.Comm.MSG.RESERVE_SYNC, buildSyncPayload())
     MRT:SendMessage("MRT_SR_STATE_CHANGED")
     return true
 end
@@ -154,7 +175,7 @@ function SoftReserve:ToggleReserve(itemID)
         end
     end
 
-    local maxN = MRT.db.profile.softReserve.maxPerPlayer
+    local maxN = self:GetMaxPerPlayer()
     if #list >= maxN then
         MRT:Print(L["sr_max"]:format(maxN))
         return
@@ -204,6 +225,10 @@ function SoftReserve:OnRemoteSync(payload, sender)
     if payload.currentRaidID ~= nil then currentRaidID = payload.currentRaidID end
     if payload.reservesOpen ~= nil then reservesOpen = payload.reservesOpen end
     if type(payload.reserves) == "table" then reserves = payload.reserves end
+    if type(payload.maxPerPlayer) == "number" then
+        MRT.db.global.softReserve = MRT.db.global.softReserve or {}
+        MRT.db.global.softReserve.maxPerPlayer = payload.maxPerPlayer
+    end
     MRT:SendMessage("MRT_SR_STATE_CHANGED")
 end
 

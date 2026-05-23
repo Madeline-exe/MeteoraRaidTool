@@ -102,6 +102,7 @@ L["status_current_raid"] = "Raid: %s   Reserves: %s"
 L["status_empty"]        = "No reserves yet. Players can pick items once the raid leader opens reserves."
 
 L["sr_max"]              = "Max %d reserves per player."
+L["sr_max_label"]        = "SR limit:"
 L["sr_closed"]           = "Reserves are closed."
 L["sr_need_lead"]        = "You need to be raid leader or assistant."
 

@@ -11,7 +11,7 @@ local Skin = ns.Skin
 
 local panel, topBar, scroll, child
 local raidDD, btnToggle, btnEdit, btnClear, btnImport, btnTest, btnBotReserves
-local counterFS
+local counterFS, maxFS, maxInput
 local editMode = false
 local sectionPool, rowPool, editRowPool = {}, {}, {}
 
@@ -287,6 +287,36 @@ local function buildPanel(parentFrame)
     counterFS = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     counterFS:SetPoint("RIGHT", panel, "TOPRIGHT", -PAD, -(PAD + TOPBAR_H + 8))
 
+    -- Max-per-player editor (RL-only). Lives on the second row, right side.
+    maxFS = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    maxFS:SetText(L["sr_max_label"])
+    maxFS:SetTextColor(unpack(Skin.color.accent))
+
+    maxInput = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
+    maxInput:SetSize(40, 22)
+    maxInput:SetAutoFocus(false)
+    maxInput:SetNumeric(true)
+    maxInput:SetMaxLetters(2)
+    maxInput:SetFontObject("GameFontHighlight")
+    maxInput:SetJustifyH("CENTER")
+    maxInput:SetPoint("RIGHT", panel, "TOPRIGHT", -PAD - 8, -(PAD + TOPBAR_H + 8 + 26))
+    maxFS:SetPoint("RIGHT", maxInput, "LEFT", -8, 0)
+
+    local function commitMax()
+        local n = tonumber(maxInput:GetText())
+        if n and n > 0 then
+            MRT.SoftReserve:SetMaxPerPlayer(n)
+        end
+        maxInput:ClearFocus()
+        UI:Refresh()
+    end
+    maxInput:SetScript("OnEnterPressed", commitMax)
+    maxInput:SetScript("OnEditFocusLost", commitMax)
+    maxInput:SetScript("OnEscapePressed", function(e)
+        e:SetText(tostring(MRT.SoftReserve:GetMaxPerPlayer()))
+        e:ClearFocus()
+    end)
+
     -- Scroll
     scroll = CreateFrame("ScrollFrame", "MRTReservesScroll", panel, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", btnTest, "BOTTOMLEFT", 0, -8)
@@ -391,10 +421,22 @@ local function refresh()
     -- Counter
     local me = UnitName("player")
     local count = SR and SR:CountForPlayer(me) or 0
-    local maxN = MRT.db.profile.softReserve.maxPerPlayer
+    local maxN = SR and SR:GetMaxPerPlayer() or 2
     counterFS:SetText(string.format("|cffffd200%s:|r %d / %d%s",
         L["you_reserved"], count, maxN,
         editMode and ("   |cffff8800[" .. L["edit_mode_on"] .. "]|r") or ""))
+
+    -- Max input: editable for RL, read-only label for everyone else
+    if rl then
+        maxInput:Show()
+        maxFS:Show()
+        if not maxInput:HasFocus() then
+            maxInput:SetText(tostring(maxN))
+        end
+    else
+        maxInput:Hide()
+        maxFS:Hide()
+    end
 
     -- Width
     local width = scroll:GetWidth()
