@@ -55,28 +55,49 @@ local function loadModuleIfPossible()
     end
 end
 
--- Extract a flat list of itemIDs from an arbitrary AtlasLoot boss-table.
--- AtlasLootClassic stores rows as nested arrays: { rowIndex, itemID } or
--- { rowIndex, itemID, "extra", ... }. We pull anything that looks like an
--- item id (positive integer in the rough range of TBC item IDs).
+-- Extract a flat list of itemIDs from an AtlasLootClassic boss-table.
+-- Structure (confirmed via /mrt atlasdump v0.7.1):
+--   bossEntry = {
+--       name = "Boss Name",   -- sometimes a table {"localised", ...}
+--       npcID = ...,
+--       [1] = { [1] = { rowIndex, itemID, "extra...", ... }, ... },
+--       [2] = ..., ...
+--   }
+-- The actual item rows nest 3-4 deep. We do a deep walk and pull any
+-- integer in the TBC epic range (~18000..60000), skipping the very small
+-- numbers that are rowIndices/quest tiers.
 local function extractItemIDs(bossData)
-    local ids = {}
+    local ids, seen = {}, {}
     local function walk(t, depth)
-        if type(t) ~= "table" or depth > 4 then return end
-        for k, v in pairs(t) do
+        if type(t) ~= "table" or depth > 8 then return end
+        for _, v in pairs(t) do
             if type(v) == "table" then
                 walk(v, depth + 1)
-            elseif type(v) == "number" and v > 18000 and v < 60000 then
-                -- Heuristic: TBC epics are 18000..50000.
-                -- Avoid duplicates within the same boss.
-                local seen = false
-                for _, x in ipairs(ids) do if x == v then seen = true; break end end
-                if not seen then table.insert(ids, v) end
+            elseif type(v) == "number" and v >= 18000 and v <= 60000 then
+                if not seen[v] then seen[v] = true; table.insert(ids, v) end
             end
         end
     end
     walk(bossData, 0)
     return ids
+end
+
+local function readBossName(v)
+    local n = v and (v.name or v.Name or v.title)
+    if type(n) == "table" then
+        n = n[GetLocale()] or n.enUS or n[1] or nil
+    end
+    if type(n) ~= "string" then return nil end
+    return n
+end
+
+-- Return the array of boss-entries for an AtlasLoot content table.
+local function bossArrayOf(content)
+    if type(content) ~= "table" then return nil end
+    if type(content.items) == "table" then return content.items end
+    -- Some old layouts store boss array right on content.
+    if type(content[1]) == "table" then return content end
+    return nil
 end
 
 local function findRaidContent(storage, raidID)
@@ -272,30 +293,50 @@ function Importer:ImportRaid(raidID)
         return false, 0, 0, L["import_no_data"]:format(ns.RaidName(raid))
     end
 
-    -- AtlasLoot content can be: an array of boss tables, or a map keyed
-    -- by bossID. We try to walk both shapes.
-    local bossListByName = {}
-    for k, v in pairs(content) do
+    local bossArray = bossArrayOf(content)
+    if not bossArray then
+        return false, 0, 0, L["import_no_data"]:format(ns.RaidName(raid))
+    end
+
+    -- Build a name → entry map so we can match by AtlasLoot's boss name.
+    local byName = {}
+    local sequential = {}
+    for k, v in pairs(bossArray) do
         if type(v) == "table" then
-            local name = v.name or v.Name or (type(k) == "string" and k) or nil
-            if name then bossListByName[name:lower()] = v end
+            local nm = readBossName(v)
+            if nm then byName[nm:lower()] = v end
+            if type(k) == "number" then sequential[k] = v end
         end
     end
 
     local bossesFilled, totalItems = 0, 0
     for bossIndex, boss in ipairs(raid.bosses) do
         local hit
+        -- Try exact match by either English or Russian boss name.
         for _, candidate in ipairs({ boss.name, boss.nameRU }) do
             if candidate then
-                hit = bossListByName[candidate:lower()]
-                if hit then break end
-                -- Also try partial match: "Gruul" matches "Gruul the Dragonkiller"
-                for lname, bossData in pairs(bossListByName) do
-                    if lname:find(candidate:lower(), 1, true) then hit = bossData; break end
-                end
+                hit = byName[candidate:lower()]
                 if hit then break end
             end
         end
+        -- Partial match (e.g. our "Gruul" vs AtlasLoot's "Gruul the Dragonkiller").
+        if not hit then
+            for _, candidate in ipairs({ boss.name, boss.nameRU }) do
+                if candidate then
+                    local c = candidate:lower()
+                    for lname, entry in pairs(byName) do
+                        if lname:find(c, 1, true) or c:find(lname, 1, true) then
+                            hit = entry; break
+                        end
+                    end
+                    if hit then break end
+                end
+            end
+        end
+        -- Fallback: same index in AtlasLoot. AtlasLoot and our Data/Raids.lua
+        -- both list bosses in encounter order, so this is usually right.
+        if not hit then hit = sequential[bossIndex] end
+
         if hit then
             local ids = extractItemIDs(hit)
             if #ids > 0 then
