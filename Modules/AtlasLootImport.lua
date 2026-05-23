@@ -103,55 +103,104 @@ end
 function Importer:Dump(raidID)
     MRT:Print("|cffffd200=== AtlasLoot dump ===|r")
     local addon = isAtlasLootLoaded()
-    MRT:Print("AtlasLoot addon loaded: " .. tostring(addon))
-    if _G.AtlasLoot then
-        local keys = {}
-        for k in pairs(_G.AtlasLoot) do table.insert(keys, k) end
-        table.sort(keys)
-        MRT:Print("AtlasLoot. fields: " .. table.concat(keys, ", "))
-        if _G.AtlasLoot.ItemDB then
-            local ikeys = {}
-            for k in pairs(_G.AtlasLoot.ItemDB) do table.insert(ikeys, k) end
-            MRT:Print("AtlasLoot.ItemDB fields: " .. table.concat(ikeys, ", "))
-            if _G.AtlasLoot.ItemDB.Storage then
-                local snames = {}
-                for k in pairs(_G.AtlasLoot.ItemDB.Storage) do table.insert(snames, k) end
-                MRT:Print("Storage modules: " .. table.concat(snames, ", "))
-                for _, modName in ipairs(snames) do
-                    local mod = _G.AtlasLoot.ItemDB.Storage[modName]
-                    if mod and type(mod) == "table" and mod.items then
-                        local ckeys = {}
-                        for k in pairs(mod.items) do table.insert(ckeys, tostring(k)) end
-                        table.sort(ckeys)
-                        MRT:Print("  " .. modName .. " content: " .. table.concat(ckeys, ", "))
+    MRT:Print("Addon loaded: " .. tostring(addon))
+    if not (_G.AtlasLoot and _G.AtlasLoot.ItemDB) then
+        MRT:Print("|cffff5555AtlasLoot or ItemDB missing|r")
+        return
+    end
+
+    -- Force-load TBC module if loader available
+    loadModuleIfPossible()
+
+    local ItemDB = _G.AtlasLoot.ItemDB
+    if ItemDB.GetModuleList then
+        local ok, list = pcall(ItemDB.GetModuleList, ItemDB)
+        if ok and type(list) == "table" then
+            MRT:Print("GetModuleList: " .. table.concat(list, ", "))
+        else
+            MRT:Print("GetModuleList failed: " .. tostring(list))
+        end
+    end
+
+    if ItemDB.Storage then
+        local snames = {}
+        for k in pairs(ItemDB.Storage) do table.insert(snames, tostring(k)) end
+        table.sort(snames)
+        MRT:Print("Storage keys: " .. table.concat(snames, ", "))
+
+        -- Inspect each module: list its content keys and the first few boss entries.
+        for _, modName in ipairs(snames) do
+            local mod = ItemDB.Storage[modName]
+            if type(mod) == "table" then
+                local subkeys = {}
+                for k in pairs(mod) do table.insert(subkeys, tostring(k)) end
+                table.sort(subkeys)
+                MRT:Print("  [" .. modName .. "] fields: " .. table.concat(subkeys, ", "))
+
+                -- Try every promising container: items, contentList, content
+                for _, candidate in ipairs({ "items", "contentList", "content", "list" }) do
+                    if type(mod[candidate]) == "table" then
+                        local ck = {}
+                        for k in pairs(mod[candidate]) do table.insert(ck, tostring(k)) end
+                        table.sort(ck)
+                        local preview = table.concat(ck, ", ")
+                        if #preview > 220 then preview = preview:sub(1, 220) .. " ..." end
+                        MRT:Print("    ." .. candidate .. ": " .. preview)
+                    end
+                end
+
+                -- Sample the first content entry to see its boss table shape.
+                if type(mod.items) == "table" then
+                    for ckey, cval in pairs(mod.items) do
+                        if type(cval) == "table" then
+                            local bossFields = {}
+                            local n = 0
+                            for k, v in pairs(cval) do
+                                n = n + 1
+                                if n <= 5 then
+                                    if type(v) == "table" then
+                                        local nm = v.name or v.Name or v[1]
+                                        table.insert(bossFields, tostring(k) .. "→" .. tostring(nm))
+                                    else
+                                        table.insert(bossFields, tostring(k) .. "=" .. tostring(v))
+                                    end
+                                end
+                            end
+                            MRT:Print(string.format("    sample content[%s]: %d entries, first: %s",
+                                tostring(ckey), n, table.concat(bossFields, " | ")))
+                            break
+                        end
                     end
                 end
             end
         end
     end
-    if _G.AtlasLoot_Data then
-        local lkeys = {}
-        for k in pairs(_G.AtlasLoot_Data) do table.insert(lkeys, tostring(k)) end
-        MRT:Print("AtlasLoot_Data keys: " .. table.concat(lkeys, ", "))
+
+    -- Try the ItemDB methods directly with a TBC moduleName guess.
+    if ItemDB.Get and ItemDB.Storage then
+        for modName in pairs(ItemDB.Storage) do
+            if tostring(modName):find("BurningCrusade") then
+                MRT:Print("Probing methods on " .. modName .. ":")
+                for _, methodName in ipairs({"GetContentList", "GetContentTable", "GetTable"}) do
+                    local m = ItemDB.Storage[modName][methodName] or ItemDB[methodName]
+                    if m then
+                        local ok2, res = pcall(m, ItemDB.Storage[modName])
+                        MRT:Print("  " .. methodName .. ": " .. tostring(ok2) .. " " ..
+                            (type(res) == "table" and ("table#" .. (#res or 0)) or tostring(res)))
+                    end
+                end
+                break
+            end
+        end
     end
 
     if raidID then
+        MRT:Print("Mapping check for raidID=" .. raidID .. ":")
         local storage = findItemDB()
         if storage then
             local content, modName, contentKey = findRaidContent(storage, raidID)
-            MRT:Print("findRaidContent(" .. raidID .. ") → " ..
-                (content and ("HIT in " .. tostring(modName) .. " key=" .. tostring(contentKey)) or "MISS"))
-            if content then
-                local n, sample = 0, {}
-                for k, v in pairs(content) do
-                    n = n + 1
-                    if n <= 3 and type(v) == "table" then
-                        local name = v.name or v.Name or "(no name)"
-                        table.insert(sample, tostring(k) .. ":" .. name)
-                    end
-                end
-                MRT:Print("  content has " .. n .. " entries; first: " .. table.concat(sample, " | "))
-            end
+            MRT:Print("  findRaidContent → " ..
+                (content and ("HIT mod=" .. tostring(modName) .. " key=" .. tostring(contentKey)) or "MISS"))
         end
     end
     MRT:Print("|cffffd200=== end dump ===|r")
