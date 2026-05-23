@@ -69,6 +69,20 @@ local function createRow()
     r.frame = CreateFrame("Frame", nil, child, "BackdropTemplate")
     Skin:ApplyDark(r.frame, Skin.color.bgAlt, Skin.color.border)
     r.frame:SetHeight(26)
+    r.frame:EnableMouse(true)
+    r.frame:SetScript("OnEnter", function(f)
+        f:SetBackdropColor(Skin.color.bgHover[1], Skin.color.bgHover[2],
+                           Skin.color.bgHover[3], Skin.color.bgHover[4])
+    end)
+    r.frame:SetScript("OnLeave", function(f)
+        f:SetBackdropColor(Skin.color.bgAlt[1], Skin.color.bgAlt[2],
+                           Skin.color.bgAlt[3], Skin.color.bgAlt[4])
+    end)
+    r.frame:SetScript("OnMouseUp", function(_, button)
+        if button == "LeftButton" and r.player and UI.ShowPlayerHistory then
+            UI:ShowPlayerHistory(r.player)
+        end
+    end)
 
     r.nameFS = r.frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     r.nameFS:SetPoint("LEFT", r.frame, "LEFT", 8, 0)
@@ -236,6 +250,7 @@ local function refresh()
         r.frame:ClearAllPoints()
         r.frame:SetPoint("TOPLEFT", child, "TOPLEFT", 4, y)
         r.frame:SetPoint("TOPRIGHT", child, "TOPRIGHT", -4, y)
+        r.player = entry.player
         r.nameFS:SetText(Skin:ColorName(entry.player))
         r.countFS:SetText(tostring(entry.count))
         r.lastFS:SetText(entry.lastLink or "")
