@@ -406,6 +406,10 @@ local function refresh()
     local raid   = raidID and ns.RaidsByID[raidID] or nil
     local on     = MRT.TestMode and MRT.TestMode:IsOn()
 
+    -- If the player lost RL status while editMode was on, exit edit mode
+    -- so they don't see add-rows / X buttons they can't actually use.
+    if not rl and editMode then editMode = false end
+
     -- Update top bar widgets
     initRaidDropdown()
     if rl then raidDD:Show() else raidDD:Hide() end

@@ -18,7 +18,43 @@ function RaidLoot:OnEnable()
     local Comm = MRT.Comm
     if Comm and Comm.MSG then
         Comm.MSG.RAIDLOOT_SYNC = Comm.MSG.RAIDLOOT_SYNC or "rlSync"
-        Comm:On(Comm.MSG.RAIDLOOT_SYNC, function(p, s) self:OnRemoteSync(p, s) end)
+        Comm:On(Comm.MSG.RAIDLOOT_SYNC,    function(p, s) self:OnRemoteSync(p, s) end)
+        Comm:On(Comm.MSG.RAIDLOOT_REQUEST, function(p, s) self:OnRemoteRequest(p, s) end)
+    end
+    self:RegisterEvent("GROUP_ROSTER_UPDATE", "OnGroupChanged")
+    self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnGroupChanged")
+end
+
+local wasInRaid = false
+local lastRequestAt = 0
+
+function RaidLoot:OnGroupChanged()
+    local inRaid = IsInRaid()
+    if inRaid and not wasInRaid then
+        -- Just joined a raid. If we're not the RL, ask whoever IS for data.
+        if not MRT:CanLead() then
+            local now = GetTime()
+            if now - lastRequestAt > 5 then
+                lastRequestAt = now
+                MRT.Comm:Send(MRT.Comm.MSG.RAIDLOOT_REQUEST, { wantAll = true })
+            end
+        else
+            -- We're the RL. Re-broadcast everything we have so newly joined
+            -- players catch up immediately.
+            for raidID in pairs(MRT.db.global.raidLoot or {}) do
+                if self:HasAnyItems(raidID) then self:Broadcast(raidID) end
+            end
+        end
+    end
+    wasInRaid = inRaid
+end
+
+function RaidLoot:OnRemoteRequest(payload, sender)
+    if not MRT:CanLead() then return end
+    -- Reply with whatever we have. Throttle a tiny bit to avoid flooding
+    -- if multiple players request simultaneously.
+    for raidID in pairs(MRT.db.global.raidLoot or {}) do
+        if self:HasAnyItems(raidID) then self:Broadcast(raidID) end
     end
 end
 

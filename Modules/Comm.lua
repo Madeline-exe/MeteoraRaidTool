@@ -21,6 +21,8 @@ local MSG = {
     POOL_SYNC     = "plSync",
     ROLL_START    = "rlStart",
     ROLL_END      = "rlEnd",
+    RAIDLOOT_REQUEST = "rlGet",
+    RESERVE_REQUEST  = "srGet",
     CONS_REPORT   = "cnRep",
 }
 Comm.MSG = MSG

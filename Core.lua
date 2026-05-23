@@ -151,6 +151,9 @@ function MRT:OnRosterUpdate()
     if self.Consumables and self.Consumables.RefreshRoster then
         self.Consumables:RefreshRoster()
     end
+    -- Roster change can flip our RL status (we lost lead, someone gave us
+    -- assist, etc.). Refresh UI so the right set of buttons is visible.
+    if self.UI and self.UI.RefreshLater then self.UI:RefreshLater() end
 end
 
 function MRT:OnSlashCommand(input)

@@ -14,11 +14,14 @@ local function ambig(name) return Ambiguate(name, "short") end
 
 function SoftReserve:OnEnable()
     local Comm = MRT.Comm
-    Comm:On(Comm.MSG.RESERVE_SET,  function(p, s) self:OnRemoteSet(p, s) end)
-    Comm:On(Comm.MSG.RESERVE_DEL,  function(p, s) self:OnRemoteDel(p, s) end)
-    Comm:On(Comm.MSG.RESERVE_SYNC, function(p, s) self:OnRemoteSync(p, s) end)
+    Comm:On(Comm.MSG.RESERVE_SET,    function(p, s) self:OnRemoteSet(p, s) end)
+    Comm:On(Comm.MSG.RESERVE_DEL,    function(p, s) self:OnRemoteDel(p, s) end)
+    Comm:On(Comm.MSG.RESERVE_SYNC,   function(p, s) self:OnRemoteSync(p, s) end)
+    Comm:On(Comm.MSG.RESERVE_REQUEST,function(p, s) self:OnRemoteRequest(p, s) end)
 
     self:RegisterEvent("ENCOUNTER_START", "OnEncounterStart")
+    self:RegisterEvent("GROUP_ROSTER_UPDATE", "OnGroupChanged")
+    self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnGroupChanged")
 
     MRT.db.global.reserveHistory = MRT.db.global.reserveHistory or {}
     -- Authoritative max-per-player lives in global so RL can broadcast a
@@ -254,6 +257,31 @@ function SoftReserve:OnEncounterStart()
             self:SetOpen(false)
         end
     end
+end
+
+local srWasInRaid = false
+local srLastReqAt = 0
+
+function SoftReserve:OnGroupChanged()
+    local inRaid = IsInRaid()
+    if inRaid and not srWasInRaid then
+        if not MRT:CanLead() then
+            local now = GetTime()
+            if now - srLastReqAt > 5 then
+                srLastReqAt = now
+                MRT.Comm:Send(MRT.Comm.MSG.RESERVE_REQUEST, {})
+            end
+        else
+            -- RL: rebroadcast current SR state to anyone who just joined.
+            MRT.Comm:Send(MRT.Comm.MSG.RESERVE_SYNC, buildSyncPayload())
+        end
+    end
+    srWasInRaid = inRaid
+end
+
+function SoftReserve:OnRemoteRequest(payload, sender)
+    if not MRT:CanLead() then return end
+    MRT.Comm:Send(MRT.Comm.MSG.RESERVE_SYNC, buildSyncPayload())
 end
 
 function SoftReserve:GetHistory()
