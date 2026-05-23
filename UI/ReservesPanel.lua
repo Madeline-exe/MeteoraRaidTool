@@ -10,7 +10,7 @@ local Skin = ns.Skin
 -- ============================================================
 
 local panel, topBar, scroll, child
-local raidDD, btnToggle, btnEdit, btnClear, btnImport, btnAskPug, btnTest, btnBotReserves
+local raidDD, btnToggle, btnEdit, btnClear, btnImport, btnAskPug
 local counterFS, maxFS, maxInput
 local editMode = false
 local sectionPool, rowPool, editRowPool = {}, {}, {}
@@ -276,24 +276,12 @@ local function buildPanel(parentFrame)
         StaticPopup_Show("MRT_CLEAR_RES_FRAME")
     end)
 
-    -- Second row of the top bar (test + bot reserves)
-    btnTest = Skin:CreateButton(panel, L["btn_test_on"], 150, 22)
-    btnTest:SetPoint("TOPLEFT", topBar, "BOTTOMLEFT", 0, -4)
-    btnTest:SetScript("OnClick", function()
-        if MRT.TestMode then MRT.TestMode:Toggle() end
-        UI:Refresh()
-    end)
-
-    btnBotReserves = Skin:CreateButton(panel, L["btn_sim_bot_reserves"], 170, 22)
-    btnBotReserves:SetPoint("LEFT", btnTest, "RIGHT", 4, 0)
-    btnBotReserves:SetScript("OnClick", function()
-        if MRT.TestMode then MRT.TestMode:SimulateBotReserves(); UI:Refresh() end
-    end)
-
+    -- Second row: player's own reserve counter (left), RL's max-per-player
+    -- editor (right). Test-mode controls were dropped from UI in v1.0 —
+    -- /mrt test still works for debugging.
     counterFS = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    counterFS:SetPoint("RIGHT", panel, "TOPRIGHT", -PAD, -(PAD + TOPBAR_H + 8))
+    counterFS:SetPoint("LEFT", panel, "TOPLEFT", PAD + 4, -(PAD + TOPBAR_H + 8))
 
-    -- Max-per-player editor (RL-only). Lives on the second row, right side.
     maxFS = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     maxFS:SetText(L["sr_max_label"])
     maxFS:SetTextColor(unpack(Skin.color.accent))
@@ -305,7 +293,7 @@ local function buildPanel(parentFrame)
     maxInput:SetMaxLetters(2)
     maxInput:SetFontObject("GameFontHighlight")
     maxInput:SetJustifyH("CENTER")
-    maxInput:SetPoint("RIGHT", panel, "TOPRIGHT", -PAD - 8, -(PAD + TOPBAR_H + 8 + 26))
+    maxInput:SetPoint("RIGHT", panel, "TOPRIGHT", -PAD - 8, -(PAD + TOPBAR_H + 8))
     maxFS:SetPoint("RIGHT", maxInput, "LEFT", -8, 0)
 
     local function commitMax()
@@ -325,7 +313,7 @@ local function buildPanel(parentFrame)
 
     -- Scroll
     scroll = CreateFrame("ScrollFrame", "MRTReservesScroll", panel, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TOPLEFT", btnTest, "BOTTOMLEFT", 0, -8)
+    scroll:SetPoint("TOPLEFT", maxInput, "BOTTOMLEFT", -PAD - 4, -8)
     scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -28, 8)
 
     child = CreateFrame("Frame", nil, scroll)
@@ -418,7 +406,6 @@ local function refresh()
     local rl    = MRT:CanLead()
     local raidID = SR and SR:GetCurrentRaid()
     local raid   = raidID and ns.RaidsByID[raidID] or nil
-    local on     = MRT.TestMode and MRT.TestMode:IsOn()
 
     -- If the player lost RL status while editMode was on, exit edit mode
     -- so they don't see add-rows / X buttons they can't actually use.
@@ -434,8 +421,6 @@ local function refresh()
     btnAskPug:SetShown(rl)
     btnImport:SetShown(rl)
     btnClear:SetShown(rl)
-    btnTest:SetText(on and L["btn_test_off"] or L["btn_test_on"])
-    btnBotReserves:SetShown(on and rl)
 
     -- Counter
     local me = UnitName("player")

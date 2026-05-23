@@ -10,6 +10,7 @@ L["help_sync"]           = " — rebroadcast current raid + loot table to the gr
 L["help_dist"]           = " — open loot distribution tab"
 L["help_cons"]           = " — open consumables tab"
 L["help_test"]           = " — toggle test mode (simulate drops and rolls outside a raid)"
+L["help_askpug"]         = " — ask players without the addon to whisper their reserves"
 
 L["none"]                = "none"
 L["state_open"]          = "OPEN"

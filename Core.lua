@@ -208,7 +208,11 @@ function MRT:PrintHelp()
     self:Print("|cffffd200/mrt sync|r " .. L["help_sync"])
     self:Print("|cffffd200/mrt dist|r " .. L["help_dist"])
     self:Print("|cffffd200/mrt cons|r " .. L["help_cons"])
-    self:Print("|cffffd200/mrt test|r " .. L["help_test"])
+    self:Print("|cffffd200/mrt askpug|r " .. L["help_askpug"])
+    -- Undocumented but kept for support:
+    --   /mrt test       — toggle test mode (RL/raid gates relaxed)
+    --   /mrt atlasdump  — print AtlasLoot structure inspection
+    --   /mrt buffs      — list current player's buffs with spell IDs
 end
 
 function MRT:OpenConfig()
