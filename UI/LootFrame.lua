@@ -3,6 +3,11 @@ local MRT = ns.MRT
 local L = ns.L
 local UI = MRT.UI
 
+-- NOTE: As of v0.6, UI:BuildDistributeTab is overridden by UI/DistributePanel.lua
+-- (loaded after this file). The AceGUI-based implementation below is kept as
+-- a reference / fallback but never runs in practice. Remove once the Frame-API
+-- panel has shipped without regression.
+
 local AceGUI = LibStub("AceGUI-3.0")
 
 local function isRL()
