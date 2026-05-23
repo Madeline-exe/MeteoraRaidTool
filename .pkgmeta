@@ -2,6 +2,11 @@ package-as: MeteoraRaidTool
 
 enable-nolib-creation: no
 
+# CurseForge project — used by BigWigs packager to auto-publish on tag.
+# Requires CF_API_TOKEN secret on the GitHub repo (Settings → Secrets → Actions).
+curseforge:
+  project-id: 1551570
+
 externals:
   Libs/LibStub:
     url: https://repos.wowace.com/wow/libstub/trunk
@@ -45,5 +50,6 @@ externals:
 ignore:
   - tools
   - README.md
+  - GUIDE.md
   - .github
   - .gitignore
