@@ -120,7 +120,7 @@ function MRT:SetupMinimapButton()
     local dataObj = LDB:NewDataObject(ADDON_NAME, {
         type  = "launcher",
         label = "Meteora",
-        icon  = "Interface\\Icons\\INV_Misc_Dice_01",
+        icon  = "Interface\\Icons\\Spell_Fire_MeteorStorm",
         OnClick = function(_, button)
             if button == "RightButton" then
                 MRT:OpenConfig()
