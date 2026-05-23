@@ -10,7 +10,7 @@ local Skin = ns.Skin
 -- ============================================================
 
 local panel, topBar, scroll, child
-local raidDD, btnToggle, btnEdit, btnClear, btnImport, btnTest, btnBotReserves
+local raidDD, btnToggle, btnEdit, btnClear, btnImport, btnAskPug, btnTest, btnBotReserves
 local counterFS, maxFS, maxInput
 local editMode = false
 local sectionPool, rowPool, editRowPool = {}, {}, {}
@@ -237,8 +237,14 @@ local function buildPanel(parentFrame)
         UI:Refresh()
     end)
 
+    btnAskPug = Skin:CreateButton(topBar, L["btn_ask_pug"], 150, 22)
+    btnAskPug:SetPoint("LEFT", btnEdit, "RIGHT", 4, 0)
+    btnAskPug:SetScript("OnClick", function()
+        if MRT.WhisperReserve then MRT.WhisperReserve:AskAllPugs() end
+    end)
+
     btnImport = Skin:CreateButton(topBar, L["btn_import_atlas"], 170, 22)
-    btnImport:SetPoint("LEFT", btnEdit, "RIGHT", 4, 0)
+    btnImport:SetPoint("LEFT", btnAskPug, "RIGHT", 4, 0)
     btnImport:SetScript("OnClick", function()
         local SR = MRT.SoftReserve
         local raidID = SR:GetCurrentRaid()
@@ -351,8 +357,16 @@ local function layoutItemRow(row, itemID, raidID, bossIndex)
     end)
 
     if #reservers > 0 then
+        local marked = {}
+        for _, p in ipairs(reservers) do
+            if SR:IsViaWhisper(p) then
+                table.insert(marked, p .. "|cff888888[W]|r")
+            else
+                table.insert(marked, p)
+            end
+        end
         row.resFS:SetText(string.format("|cffffd200%d|r — %s",
-            #reservers, table.concat(reservers, ", ")))
+            #reservers, table.concat(marked, ", ")))
     else
         row.resFS:SetText("")
     end
@@ -417,6 +431,7 @@ local function refresh()
     btnToggle:SetShown(rl)
     btnEdit:SetText(editMode and L["btn_edit_done"] or L["btn_edit"])
     btnEdit:SetShown(rl)
+    btnAskPug:SetShown(rl)
     btnImport:SetShown(rl)
     btnClear:SetShown(rl)
     btnTest:SetText(on and L["btn_test_off"] or L["btn_test_on"])

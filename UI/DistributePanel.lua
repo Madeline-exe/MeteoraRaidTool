@@ -336,7 +336,15 @@ local function layoutItemRow(row, entry, width)
     local SR = MRT.SoftReserve
     local reservers = SR and SR:GetReservesForItem(entry.itemID) or {}
     if #reservers > 0 then
-        row.srFS:SetText("|cffff8800" .. L["award_sr"] .. ":|r " .. table.concat(reservers, ", "))
+        local marked = {}
+        for _, p in ipairs(reservers) do
+            if SR:IsViaWhisper(p) then
+                table.insert(marked, p .. "|cff888888[W]|r")
+            else
+                table.insert(marked, p)
+            end
+        end
+        row.srFS:SetText("|cffff8800" .. L["award_sr"] .. ":|r " .. table.concat(marked, ", "))
     else
         row.srFS:SetText("|cff666666" .. L["award_no_sr"] .. "|r")
     end

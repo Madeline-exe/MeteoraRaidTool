@@ -192,6 +192,8 @@ function MRT:OnSlashCommand(input)
         if self.Consumables and self.Consumables.DumpBuffs then
             self.Consumables:DumpBuffs()
         end
+    elseif cmd == "askpug" then
+        if self.WhisperReserve then self.WhisperReserve:AskAllPugs() end
     elseif cmd == "config" or cmd == "options" then
         self:OpenConfig()
     elseif cmd == "version" then

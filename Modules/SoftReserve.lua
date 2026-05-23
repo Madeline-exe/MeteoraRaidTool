@@ -184,6 +184,47 @@ function SoftReserve:CountForPlayer(player)
     return list and #list or 0
 end
 
+-- Mark which players reserved through a whisper flow (no addon installed).
+-- Cleared when the player is removed entirely.
+local viaWhisper = {}
+
+function SoftReserve:IsViaWhisper(player)
+    return viaWhisper[player] == true
+end
+
+-- Add a reservation on behalf of a player (e.g. a pug who whispered us).
+-- Returns one of: "ok", "already", "max", "not_in_pool", "no_raid", "closed".
+function SoftReserve:AddForPlayer(player, itemID, opts)
+    if not MRT:CanLead() then return "denied" end
+    if not currentRaidID then return "no_raid" end
+    if not reservesOpen then return "closed" end
+
+    reserves[player] = reserves[player] or {}
+    for _, id in ipairs(reserves[player]) do
+        if id == itemID then return "already" end
+    end
+    if #reserves[player] >= self:GetMaxPerPlayer() then return "max" end
+
+    -- Item must be in this raid's drop table to count.
+    local found = false
+    local raid = ns.RaidsByID[currentRaidID]
+    if raid then
+        for bossIndex in ipairs(raid.bosses) do
+            for _, id in ipairs(MRT.RaidLoot:GetItems(currentRaidID, bossIndex)) do
+                if id == itemID then found = true; break end
+            end
+            if found then break end
+        end
+    end
+    if not found then return "not_in_pool" end
+
+    table.insert(reserves[player], itemID)
+    if opts and opts.viaWhisper then viaWhisper[player] = true end
+    MRT.Comm:Send(MRT.Comm.MSG.RESERVE_SET, { player = player, itemID = itemID })
+    MRT:SendMessage("MRT_SR_STATE_CHANGED")
+    return "ok"
+end
+
 function SoftReserve:ToggleReserve(itemID)
     if not self:CanReserve() then
         MRT:Print(L["sr_closed"])

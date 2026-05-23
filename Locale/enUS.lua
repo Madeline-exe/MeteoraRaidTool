@@ -107,6 +107,19 @@ L["sr_max_label"]        = "SR limit:"
 -- Auto-trade
 L["trade_placed"]        = "Auto-trade: placed %d items into trade with %s."
 L["trade_missing"]       = "Auto-trade: %d items missing from bags for %s."
+
+-- Whisper reserves (pugs without addon)
+L["btn_ask_pug"]         = "Ask pugs"
+L["wr_request"]          = "[Meteora SR] Raid: %s. You can reserve up to %d items. Whisper me back item links (Shift+click from AtlasLoot or chat) and I'll add them for you."
+L["wr_open_first"]       = "Open reserves first via 'Open reserves'."
+L["wr_asked"]            = "Sent %d whispers (to people without the addon)."
+L["wr_reply_ok"]         = "Reserved: %s."
+L["wr_reply_deny"]       = "Not reserved %s (%s)."
+L["wr_reason_max"]       = "limit reached"
+L["wr_reason_not_in_pool"] = "not in drop table"
+L["wr_reason_closed"]    = "reserves closed"
+L["wr_reason_no_raid"]   = "no raid selected"
+L["wr_reason_denied"]    = "no permission"
 L["sr_closed"]           = "Reserves are closed."
 L["sr_need_lead"]        = "You need to be raid leader or assistant."
 

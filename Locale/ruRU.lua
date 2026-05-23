@@ -107,6 +107,19 @@ L["sr_max_label"]        = "Лимит SR:"
 -- Auto-trade
 L["trade_placed"]        = "Автотрейд: положено %d предметов для %s."
 L["trade_missing"]       = "Автотрейд: %d предметов не найдено в сумках для %s."
+
+-- Whisper reserves (pugs without addon)
+L["btn_ask_pug"]         = "Спросить у пуга"
+L["wr_request"]          = "[Meteora SR] Рейд: %s. Ты можешь зарезервить до %d предметов. Перешли мне в ЛС линки желаемых вещей (Shift+клик из AtlasLoot или из чата) — я добавлю тебя автоматически."
+L["wr_open_first"]       = "Сначала открой резервы кнопкой 'Открыть резервы'."
+L["wr_asked"]            = "Отправлено приглашений: %d (тем, у кого нет аддона)."
+L["wr_reply_ok"]         = "Зарезервировано: %s."
+L["wr_reply_deny"]       = "Не зарезервировано %s (%s)."
+L["wr_reason_max"]       = "достигнут лимит"
+L["wr_reason_not_in_pool"] = "нет в дроп-таблице"
+L["wr_reason_closed"]    = "резервы закрыты"
+L["wr_reason_no_raid"]   = "рейд не выбран"
+L["wr_reason_denied"]    = "нет прав"
 L["sr_closed"]           = "Резервы закрыты."
 L["sr_need_lead"]        = "Нужны права рейдлида или ассиста."
 
