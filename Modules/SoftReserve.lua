@@ -65,7 +65,7 @@ function SoftReserve:IsOpen()
 end
 
 function SoftReserve:SetCurrentRaid(raidID, open)
-    if not (MRT:IsRaidLeader() or MRT:IsRaidAssistant()) then
+    if not MRT:CanLead() then
         MRT:Print(L["sr_need_lead"])
         return false
     end
@@ -81,7 +81,7 @@ function SoftReserve:SetCurrentRaid(raidID, open)
 end
 
 function SoftReserve:SetOpen(open)
-    if not (MRT:IsRaidLeader() or MRT:IsRaidAssistant()) then
+    if not MRT:CanLead() then
         MRT:Print(L["sr_need_lead"])
         return false
     end
@@ -100,7 +100,7 @@ function SoftReserve:SetOpen(open)
 end
 
 function SoftReserve:ClearAll()
-    if not (MRT:IsRaidLeader() or MRT:IsRaidAssistant()) then
+    if not MRT:CanLead() then
         MRT:Print(L["sr_need_lead"])
         return false
     end

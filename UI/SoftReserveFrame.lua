@@ -6,7 +6,7 @@ local UI = MRT.UI
 local AceGUI = LibStub("AceGUI-3.0")
 
 local function isRL()
-    return MRT:IsRaidLeader() or MRT:IsRaidAssistant() or not IsInRaid()
+    return MRT:CanLead()
 end
 
 local function raidDropdownList()
@@ -63,10 +63,26 @@ local function buildItemRow(parent, itemID, raidID, bossIndex)
         row:AddChild(star)
     end
 
-    local link = select(2, GetItemInfo(itemID)) or ("item:" .. itemID)
+    local _, link, _, _, _, _, _, _, _, iconTex = GetItemInfo(itemID)
+    link = link or ("item:" .. itemID)
+    iconTex = iconTex or "Interface\\Icons\\INV_Misc_QuestionMark"
+
+    local icon = AceGUI:Create("Icon")
+    icon:SetImage(iconTex)
+    icon:SetImageSize(22, 22)
+    icon:SetWidth(28)
+    icon:SetHeight(28)
+    icon:SetCallback("OnEnter", function(w)
+        GameTooltip:SetOwner(w.frame, "ANCHOR_RIGHT")
+        GameTooltip:SetHyperlink("item:" .. itemID)
+        GameTooltip:Show()
+    end)
+    icon:SetCallback("OnLeave", function() GameTooltip:Hide() end)
+    row:AddChild(icon)
+
     local lbl = AceGUI:Create("InteractiveLabel")
     lbl:SetText(link)
-    lbl:SetWidth(320)
+    lbl:SetWidth(290)
     lbl:SetCallback("OnEnter", function(w)
         GameTooltip:SetOwner(w.frame, "ANCHOR_RIGHT")
         GameTooltip:SetHyperlink("item:" .. itemID)
@@ -159,6 +175,32 @@ function UI:BuildReservesTab(container)
         end)
         bar:AddChild(edit)
 
+        local importBtn = AceGUI:Create("Button")
+        importBtn:SetText(L["btn_import_atlas"])
+        importBtn:SetWidth(180)
+        importBtn:SetCallback("OnClick", function()
+            local raidID = SR:GetCurrentRaid()
+            if not raidID then MRT:Print(L["hint_pick_raid"]); return end
+            local raid = ns.RaidsByID[raidID]
+            StaticPopupDialogs = StaticPopupDialogs or {}
+            StaticPopupDialogs["MRT_CONFIRM_IMPORT"] = {
+                text = L["popup_confirm_import"]:format(ns.RaidName(raid)),
+                button1 = YES, button2 = NO,
+                OnAccept = function()
+                    local ok, bosses, items, err = MRT.AtlasLootImport:ImportRaid(raidID)
+                    if ok then
+                        MRT:Print(L["import_done"]:format(bosses, items))
+                        UI:Refresh()
+                    else
+                        MRT:Print("|cffff5555" .. (err or "?") .. "|r")
+                    end
+                end,
+                timeout = 0, whileDead = true, hideOnEscape = true,
+            }
+            StaticPopup_Show("MRT_CONFIRM_IMPORT")
+        end)
+        bar:AddChild(importBtn)
+
         local clear = AceGUI:Create("Button")
         clear:SetText(L["btn_clear_all"])
         clear:SetWidth(120)
@@ -173,6 +215,17 @@ function UI:BuildReservesTab(container)
             StaticPopup_Show("MRT_CLEAR_RESERVES")
         end)
         bar:AddChild(clear)
+
+        if MRT.TestMode and MRT.TestMode:IsOn() then
+            local botRes = AceGUI:Create("Button")
+            botRes:SetText(L["btn_sim_bot_reserves"])
+            botRes:SetWidth(170)
+            botRes:SetCallback("OnClick", function()
+                MRT.TestMode:SimulateBotReserves()
+                UI:Refresh()
+            end)
+            bar:AddChild(botRes)
+        end
     else
         local raidID = SR:GetCurrentRaid()
         local raid = raidID and ns.RaidsByID[raidID]
@@ -186,6 +239,17 @@ function UI:BuildReservesTab(container)
         statusLbl:SetFontObject(GameFontHighlight)
         bar:AddChild(statusLbl)
     end
+
+    -- Test mode toggle — visible to anyone, lets a solo player exercise the addon.
+    local testBtn = AceGUI:Create("Button")
+    local on = MRT.TestMode and MRT.TestMode:IsOn()
+    testBtn:SetText(on and L["btn_test_off"] or L["btn_test_on"])
+    testBtn:SetWidth(150)
+    testBtn:SetCallback("OnClick", function()
+        if MRT.TestMode then MRT.TestMode:Toggle() end
+        UI:Refresh()
+    end)
+    bar:AddChild(testBtn)
 
     -- ---------- COUNTER ----------
     local me = UnitName("player")

@@ -6,7 +6,7 @@ local UI = MRT.UI
 local AceGUI = LibStub("AceGUI-3.0")
 
 local function isRL()
-    return MRT:IsRaidLeader() or MRT:IsRaidAssistant() or not IsInRaid()
+    return MRT:CanLead()
 end
 
 local function raidRosterList()
@@ -23,6 +23,9 @@ local function raidRosterList()
             local name = UnitName("party" .. i)
             if name then list[name] = name end
         end
+    end
+    if MRT.TestMode and MRT.TestMode:IsOn() then
+        for _, bot in ipairs(MRT.TestMode:GetBots()) do list[bot] = bot end
     end
     return list
 end
@@ -50,22 +53,50 @@ local function buildItemRow(parent, entry)
     local SR = MRT.SoftReserve
     local reservers = SR and SR:GetReservesForItem(entry.itemID) or {}
 
+    local _, link, _, _, _, _, _, _, _, iconTex = GetItemInfo(entry.itemID)
+    link = link or entry.link or ("item:" .. entry.itemID)
+    iconTex = iconTex or "Interface\\Icons\\INV_Misc_QuestionMark"
+
+    local sourceTag = ""
+    if entry.source == "chat" then
+        sourceTag = "   |cffaaaaaa[" .. L["pool_chat_tag"] .. "]|r"
+    elseif entry.source == "test" then
+        sourceTag = "   |cffffaa00[" .. (L["test_badge"] or "TEST") .. "]|r"
+    end
+
     local group = AceGUI:Create("InlineGroup")
     group:SetFullWidth(true)
     group:SetLayout("Flow")
-    group:SetTitle((entry.link or ("item:" .. entry.itemID))
-        .. (entry.source == "chat" and ("   |cffaaaaaa[" .. L["pool_chat_tag"] .. "]|r") or ""))
+    group:SetTitle(link .. sourceTag)
     parent:AddChild(group)
 
-    -- SR info line
+    -- Header row: icon + SR list
+    local headRow = AceGUI:Create("SimpleGroup")
+    headRow:SetLayout("Flow")
+    headRow:SetFullWidth(true)
+    group:AddChild(headRow)
+
+    local icon = AceGUI:Create("Icon")
+    icon:SetImage(iconTex)
+    icon:SetImageSize(28, 28)
+    icon:SetWidth(36)
+    icon:SetHeight(36)
+    icon:SetCallback("OnEnter", function(w)
+        GameTooltip:SetOwner(w.frame, "ANCHOR_RIGHT")
+        GameTooltip:SetHyperlink("item:" .. entry.itemID)
+        GameTooltip:Show()
+    end)
+    icon:SetCallback("OnLeave", function() GameTooltip:Hide() end)
+    headRow:AddChild(icon)
+
     local srLbl = AceGUI:Create("Label")
-    srLbl:SetFullWidth(true)
+    srLbl:SetWidth(440)
     if #reservers > 0 then
         srLbl:SetText("|cffff8800" .. L["award_sr"] .. ":|r " .. table.concat(reservers, ", "))
     else
         srLbl:SetText("|cff888888" .. L["award_no_sr"] .. "|r")
     end
-    group:AddChild(srLbl)
+    headRow:AddChild(srLbl)
 
     -- Action row
     local actions = AceGUI:Create("SimpleGroup")
@@ -222,6 +253,26 @@ function UI:BuildDistributeTab(container)
         StaticPopup_Show("MRT_CLEAR_POOL")
     end)
     bar:AddChild(clearBtn)
+
+    if MRT.TestMode and MRT.TestMode:IsOn() then
+        local simDrop = AceGUI:Create("Button")
+        simDrop:SetText(L["btn_sim_drop"])
+        simDrop:SetWidth(170)
+        simDrop:SetCallback("OnClick", function()
+            MRT.TestMode:SimulateDrop(3)
+            UI:Refresh()
+        end)
+        bar:AddChild(simDrop)
+
+        local simRoll = AceGUI:Create("Button")
+        simRoll:SetText(L["btn_sim_rolls"])
+        simRoll:SetWidth(170)
+        simRoll:SetCallback("OnClick", function()
+            MRT.TestMode:SimulateRolls(3)
+            UI:Refresh()
+        end)
+        bar:AddChild(simRoll)
+    end
 
     local scroll = AceGUI:Create("ScrollFrame")
     scroll:SetLayout("List")

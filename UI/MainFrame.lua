@@ -41,6 +41,18 @@ function UI:OnEnable()
     self:RegisterMessage("MRT_RAIDLOOT_CHANGED",  "RefreshLater")
     self:RegisterMessage("MRT_POOL_CHANGED",      "RefreshLater")
     self:RegisterMessage("MRT_ROLL_UPDATE",       "RefreshLater")
+    self:RegisterMessage("MRT_TEST_TOGGLED",      "OnTestToggled")
+end
+
+function UI:OnTestToggled()
+    if main then
+        if MRT.TestMode and MRT.TestMode:IsOn() then
+            main:SetTitle("Meteora Raid Tool   |cffffaa00[" .. L["test_badge"] .. "]|r")
+        else
+            main:SetTitle("Meteora Raid Tool")
+        end
+    end
+    self:RefreshLater()
 end
 
 function UI:RefreshLater()
@@ -53,7 +65,9 @@ function UI:Build()
     if main then return main end
 
     main = AceGUI:Create("Frame")
-    main:SetTitle("Meteora Raid Tool")
+    local titleSuffix = (MRT.TestMode and MRT.TestMode:IsOn())
+        and ("   |cffffaa00[" .. L["test_badge"] .. "]|r") or ""
+    main:SetTitle("Meteora Raid Tool" .. titleSuffix)
     main:SetStatusText(L["status_ready"])
     main:SetLayout("Fill")
     main:SetWidth(700)
@@ -155,11 +169,26 @@ function UI:BuildStatusTab(container)
         row:SetLayout("Flow")
         row:SetFullWidth(true)
 
-        local link = select(2, GetItemInfo(itemID)) or ("item:" .. itemID)
+        local _, link, _, _, _, _, _, _, _, iconTex = GetItemInfo(itemID)
+        link = link or ("item:" .. itemID)
+        iconTex = iconTex or "Interface\\Icons\\INV_Misc_QuestionMark"
+
+        local icon = AceGUI:Create("Icon")
+        icon:SetImage(iconTex)
+        icon:SetImageSize(20, 20)
+        icon:SetWidth(26)
+        icon:SetHeight(26)
+        icon:SetCallback("OnEnter", function(w)
+            GameTooltip:SetOwner(w.frame, "ANCHOR_RIGHT")
+            GameTooltip:SetHyperlink("item:" .. itemID)
+            GameTooltip:Show()
+        end)
+        icon:SetCallback("OnLeave", function() GameTooltip:Hide() end)
+        row:AddChild(icon)
 
         local nameLbl = AceGUI:Create("InteractiveLabel")
         nameLbl:SetText(link)
-        nameLbl:SetWidth(280)
+        nameLbl:SetWidth(254)
         nameLbl:SetCallback("OnEnter", function(w)
             GameTooltip:SetOwner(w.frame, "ANCHOR_RIGHT")
             GameTooltip:SetHyperlink("item:" .. itemID)

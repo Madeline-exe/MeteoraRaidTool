@@ -3,10 +3,10 @@
 ## Notes: Guild raid management: soft-reserves, loot distribution with rolls, consumable tracking.
 ## Notes-ruRU: Гильдейский рейд-инструмент: софт-резервы, распределение лута с роллами, трекинг расходников.
 ## Author: Meteora
-## Version: 0.4.1
+## Version: 0.5.0
 ## SavedVariables: MeteoraRaidToolDB
 ## SavedVariablesPerCharacter: MeteoraRaidToolCharDB
-## OptionalDeps: Ace3
+## OptionalDeps: Ace3, AtlasLootClassic, AtlasLoot
 ## X-Category: Raid
 ## X-Embeds: Ace3, LibDeflate, LibSerialize
 
@@ -45,6 +45,8 @@ Modules\RaidLoot.lua
 Modules\SoftReserve.lua
 Modules\Loot.lua
 Modules\Consumables.lua
+Modules\TestMode.lua
+Modules\AtlasLootImport.lua
 
 UI\MainFrame.lua
 UI\SoftReserveFrame.lua

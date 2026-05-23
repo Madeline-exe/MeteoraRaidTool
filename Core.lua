@@ -178,6 +178,8 @@ function MRT:OnSlashCommand(input)
         if self.UI and self.UI.OpenTab then
             self.UI:OpenTab("distribute")
         end
+    elseif cmd == "test" then
+        if self.TestMode then self.TestMode:HandleSlash(rest) end
     elseif cmd == "config" or cmd == "options" then
         self:OpenConfig()
     elseif cmd == "version" then
@@ -192,6 +194,7 @@ function MRT:PrintHelp()
     self:Print("|cffffd200/mrt sync|r " .. L["help_sync"])
     self:Print("|cffffd200/mrt dist|r " .. L["help_dist"])
     self:Print("|cffffd200/mrt cons|r " .. L["help_cons"])
+    self:Print("|cffffd200/mrt test|r " .. L["help_test"])
 end
 
 function MRT:OpenConfig()
@@ -214,6 +217,14 @@ function MRT:IsRaidAssistant(unit)
     if not IsInRaid() then return false end
     local _, rank = GetRaidRosterInfo(self:UnitRaidIndex(unit) or 0)
     return rank and rank >= 1
+end
+
+-- "Can act as RL" — true in raid as leader/assist, OR in test mode, OR solo.
+-- Use this for permission gates that should soften in single-player testing.
+function MRT:CanLead()
+    if self.TestMode and self.TestMode:IsOn() then return true end
+    if not IsInRaid() then return true end
+    return self:IsRaidLeader() or self:IsRaidAssistant()
 end
 
 function MRT:UnitRaidIndex(unit)

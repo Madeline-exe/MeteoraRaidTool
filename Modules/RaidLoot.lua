@@ -71,7 +71,7 @@ end
 -- ===========================================================
 
 local function canEdit()
-    return MRT:IsRaidLeader() or MRT:IsRaidAssistant() or not IsInRaid()
+    return MRT:CanLead()
 end
 
 function RaidLoot:AddItem(raidID, bossIndex, itemInput)
