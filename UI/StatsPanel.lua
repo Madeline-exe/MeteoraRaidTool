@@ -262,30 +262,78 @@ function UI:HideStatsPanel() if panel then panel:Hide() end end
 -- Export helpers
 -- ============================================================
 
+-- Render a padded table with header underline, wrapped in a Discord
+-- code block.  Column widths are fixed sane defaults; long strings get
+-- truncated with "...". UTF-8 aware so Cyrillic names align correctly.
+local function renderTable(headers, widths, rows, title)
+    local out = {}
+    if title and title ~= "" then
+        table.insert(out, "**" .. title .. "**")
+    end
+    table.insert(out, "```")
+
+    local function fmt(parts)
+        local cells = {}
+        for i, p in ipairs(parts) do
+            cells[i] = Skin.padRight(p, widths[i])
+        end
+        return table.concat(cells, "  ")
+    end
+
+    table.insert(out, fmt(headers))
+    -- Separator: total width = sum(widths) + 2 * (n-1)
+    local total = 0
+    for _, w in ipairs(widths) do total = total + w end
+    total = total + 2 * (#widths - 1)
+    table.insert(out, string.rep("-", total))
+
+    for _, row in ipairs(rows) do
+        table.insert(out, fmt(row))
+    end
+    table.insert(out, "```")
+    return table.concat(out, "\n")
+end
+
 function UI:ExportStats()
     local list = aggregate()
-    local lines = { L["stats_col_player"] .. "\t" .. L["stats_col_count"]
-                    .. "\t" .. L["stats_col_last"] .. "\t" .. L["stats_col_date"] }
+    local periodLabel = "All time"
+    for _, opt in ipairs(PERIOD_OPTIONS) do
+        if opt.sec == periodSec then periodLabel = opt.label; break end
+    end
+    local raidLabel = "All raids"
+    if raidFilter and raidFilter ~= "all" then
+        local r = ns.RaidsByID[raidFilter]
+        if r then raidLabel = ns.RaidName(r) end
+    end
+
+    local headers = { L["stats_col_player"], L["stats_col_count"],
+                      L["stats_col_last"], L["stats_col_date"] }
+    local widths  = { 16, 6, 36, 16 }
+    local rows = {}
     for _, e in ipairs(list) do
         local link = plainLink(e.lastLink)
         local dt = e.lastTime > 0 and date("%Y-%m-%d %H:%M", e.lastTime) or ""
-        lines[#lines + 1] = string.format("%s\t%d\t%s\t%s",
-            e.player, e.count, link, dt)
+        table.insert(rows, { e.player, tostring(e.count), link, dt })
     end
-    self:ShowExport(L["export_title_stats"], table.concat(lines, "\n"))
+    local title = string.format("Meteora Raid Tool — %s (%s, %s)",
+        L["tab_stats"], periodLabel, raidLabel)
+    self:ShowExport(L["export_title_stats"], renderTable(headers, widths, rows, title))
 end
 
 function UI:ExportLootHistory()
     local hist = MRT.db.global.lootHistory or {}
-    local lines = { "Date\tItem\tWinner\tRaid" }
+    local headers = { L["stats_col_date"], L["stats_col_last"],
+                      L["stats_col_player"], L["pick_raid"] }
+    local widths  = { 16, 36, 16, 18 }
+    local rows = {}
     for i = #hist, 1, -1 do
         local e = hist[i]
         local link = plainLink(e.link, e.itemID)
         local raid = e.raid and ns.RaidsByID[e.raid]
         local raidName = raid and ns.RaidName(raid) or (e.raid or "")
         local dt = e.timestamp and date("%Y-%m-%d %H:%M", e.timestamp) or ""
-        lines[#lines + 1] = string.format("%s\t%s\t%s\t%s",
-            dt, link, e.winner or "?", raidName)
+        table.insert(rows, { dt, link, e.winner or "?", raidName })
     end
-    self:ShowExport(L["export_title_loot"], table.concat(lines, "\n"))
+    local title = "Meteora Raid Tool — " .. (L["tab_history"] or "Loot history")
+    self:ShowExport(L["export_title_loot"], renderTable(headers, widths, rows, title))
 end

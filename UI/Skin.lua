@@ -176,6 +176,44 @@ end
 -- back to plain if class lookup fails).
 -- ============================================================
 
+-- ============================================================
+-- UTF-8 aware text helpers (used by export tables — Lua's %-Ns
+-- counts bytes, so Cyrillic names break column alignment).
+-- ============================================================
+
+function Skin.utf8len(s)
+    if not s or s == "" then return 0 end
+    local _, n = s:gsub("[^\128-\191]", "")
+    return n
+end
+
+function Skin.utf8truncate(s, maxChars)
+    if not s then return "" end
+    local len = Skin.utf8len(s)
+    if len <= maxChars then return s end
+    local out, count = "", 0
+    for ch in s:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+        if count >= maxChars - 3 then break end
+        out = out .. ch
+        count = count + 1
+    end
+    return out .. "..."
+end
+
+function Skin.padRight(s, width)
+    s = tostring(s or "")
+    local n = Skin.utf8len(s)
+    if n >= width then return Skin.utf8truncate(s, width) end
+    return s .. string.rep(" ", width - n)
+end
+
+function Skin.padLeft(s, width)
+    s = tostring(s or "")
+    local n = Skin.utf8len(s)
+    if n >= width then return Skin.utf8truncate(s, width) end
+    return string.rep(" ", width - n) .. s
+end
+
 function Skin:ColorName(name)
     if not name or name == "" then return name or "?" end
     local _, class
