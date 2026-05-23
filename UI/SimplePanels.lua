@@ -203,6 +203,12 @@ function UI:BuildHistoryTab(container)
     if not parent then return end
     if not histPanel then
         histPanel, _, histChild = makePanel(parent)
+
+        -- Copy-to-clipboard button anchored to the panel top-right
+        local copyBtn = Skin:CreateButton(histPanel, L["btn_copy_export"], 130, 22)
+        copyBtn:SetPoint("TOPRIGHT", histPanel, "TOPRIGHT", -34, -4)
+        copyBtn:SetScript("OnClick", function() UI:ExportLootHistory() end)
+        histPanel._copyBtn = copyBtn
     else
         histPanel:SetParent(parent); histPanel:ClearAllPoints()
         histPanel:SetAllPoints(parent); histPanel:Show()

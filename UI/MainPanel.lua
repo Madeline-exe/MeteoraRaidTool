@@ -33,6 +33,7 @@ local TABS = {
     { value = "status",      labelKey = "tab_status"      },
     { value = "history",     labelKey = "tab_history"     },
     { value = "sr_history",  labelKey = "tab_sr_history"  },
+    { value = "stats",       labelKey = "tab_stats"       },
 }
 
 -- ============================================================
@@ -196,6 +197,7 @@ local function showTab(tabValue)
     if UI.HideHistoryPanel     then UI:HideHistoryPanel()     end
     if UI.HideSRHistoryPanel   then UI:HideSRHistoryPanel()   end
     if UI.HideConsumablesPanel then UI:HideConsumablesPanel() end
+    if UI.HideStatsPanel       then UI:HideStatsPanel()       end
 
     -- Update tab button states
     for value, btn in pairs(tabButtons) do
@@ -213,6 +215,7 @@ local function showTab(tabValue)
         elseif tabValue == "status" then      UI:BuildStatusTab(container)
         elseif tabValue == "history" then     UI:BuildHistoryTab(container)
         elseif tabValue == "sr_history" then  UI:BuildSRHistoryTab(container)
+        elseif tabValue == "stats" then       UI:BuildStatsTab(container)
         end
     end)
     if not ok then
