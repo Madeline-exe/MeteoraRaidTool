@@ -55,30 +55,52 @@ local function loadModuleIfPossible()
     end
 end
 
--- Extract a flat list of itemIDs from an AtlasLootClassic boss-table.
--- Structure (confirmed via /mrt atlasdump v0.7.1):
+-- AtlasLootClassic stores each boss as:
 --   bossEntry = {
---       name = "Boss Name",   -- sometimes a table {"localised", ...}
---       npcID = ...,
---       [1] = { [1] = { rowIndex, itemID, "extra...", ... }, ... },
---       [2] = ..., ...
+--       name  = "Boss Name",
+--       npcID = N,
+--       [1] = { -- "difficulty 1" / Normal item table
+--           { rowIdx, itemID, "modifier..." },  -- one row per visible slot
+--           ...
+--       },
+--       [2] = { ... },  -- another difficulty (Heroic/Mythic) if any
+--       __atlaslootdata = <reference to global module data>,  -- metadata
 --   }
--- The actual item rows nest 3-4 deep. We do a deep walk and pull any
--- integer in the TBC epic range (~18000..60000), skipping the very small
--- numbers that are rowIndices/quest tiers.
-local function extractItemIDs(bossData)
+--
+-- We pull only row[2] from each row inside bossEntry[1] (the main item
+-- table). We deliberately skip the deep walk because __atlaslootdata
+-- transitively links back to every loot table in the game, which caused
+-- v0.7.2 to leak unrelated craft / classic items into the import.
+local function extractItemIDs(bossEntry)
     local ids, seen = {}, {}
-    local function walk(t, depth)
-        if type(t) ~= "table" or depth > 8 then return end
-        for _, v in pairs(t) do
-            if type(v) == "table" then
-                walk(v, depth + 1)
-            elseif type(v) == "number" and v >= 18000 and v <= 60000 then
-                if not seen[v] then seen[v] = true; table.insert(ids, v) end
+    if type(bossEntry) ~= "table" then return ids end
+
+    local function pull(rowTable)
+        if type(rowTable) ~= "table" then return end
+        for _, row in ipairs(rowTable) do
+            if type(row) == "table" then
+                local itemID = tonumber(row[2])
+                if itemID and itemID > 0 and not seen[itemID] then
+                    seen[itemID] = true
+                    -- Quality filter (rare+) when item is already cached.
+                    -- Uncached items return nil; include them rather than
+                    -- silently drop loot.
+                    local _, _, quality = GetItemInfo(itemID)
+                    if not quality or quality >= 3 then
+                        table.insert(ids, itemID)
+                    end
+                end
             end
         end
     end
-    walk(bossData, 0)
+
+    -- Boss difficulties live at numeric keys. Most TBC raids have only [1].
+    -- Some bosses also expose [2] (Heroic on later content); we take both
+    -- since the same drop list typically repeats.
+    for i = 1, 5 do
+        if bossEntry[i] then pull(bossEntry[i]) end
+    end
+
     return ids
 end
 

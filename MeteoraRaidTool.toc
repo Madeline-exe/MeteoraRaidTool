@@ -3,7 +3,7 @@
 ## Notes: Guild raid management: soft-reserves, loot distribution with rolls, consumable tracking.
 ## Notes-ruRU: Гильдейский рейд-инструмент: софт-резервы, распределение лута с роллами, трекинг расходников.
 ## Author: Meteora
-## Version: 0.7.2
+## Version: 0.7.3
 ## SavedVariables: MeteoraRaidToolDB
 ## SavedVariablesPerCharacter: MeteoraRaidToolCharDB
 ## OptionalDeps: Ace3, AtlasLootClassic, AtlasLoot
