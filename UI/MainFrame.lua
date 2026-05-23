@@ -15,10 +15,16 @@ local function safeBuild(group, container)
     local ok, err = pcall(function()
         if group == "reserves" then
             UI:BuildReservesTab(container)
+        elseif group == "distribute" then
+            UI:BuildDistributeTab(container)
+        elseif group == "consumables" then
+            UI:BuildConsumablesTab(container)
         elseif group == "status" then
             UI:BuildStatusTab(container)
         elseif group == "history" then
             UI:BuildHistoryTab(container)
+        elseif group == "sr_history" then
+            UI:BuildSRHistoryTab(container)
         end
     end)
     if not ok then
@@ -33,6 +39,8 @@ end
 function UI:OnEnable()
     self:RegisterMessage("MRT_SR_STATE_CHANGED",  "RefreshLater")
     self:RegisterMessage("MRT_RAIDLOOT_CHANGED",  "RefreshLater")
+    self:RegisterMessage("MRT_POOL_CHANGED",      "RefreshLater")
+    self:RegisterMessage("MRT_ROLL_UPDATE",       "RefreshLater")
 end
 
 function UI:RefreshLater()
@@ -56,15 +64,25 @@ function UI:Build()
     tabGroup = AceGUI:Create("TabGroup")
     tabGroup:SetLayout("Flow")
     tabGroup:SetTabs({
-        { value = "reserves", text = L["tab_reserves"] },
-        { value = "status",   text = L["tab_status"]   },
-        { value = "history",  text = L["tab_history"]  },
+        { value = "reserves",    text = L["tab_reserves"]    },
+        { value = "distribute",  text = L["tab_distribute"]  },
+        { value = "consumables", text = L["tab_consumables"] },
+        { value = "status",      text = L["tab_status"]      },
+        { value = "history",     text = L["tab_history"]     },
+        { value = "sr_history",  text = L["tab_sr_history"]  },
     })
     tabGroup:SetCallback("OnGroupSelected", function(_, _, group) safeBuild(group, tabGroup) end)
     tabGroup:SelectTab("reserves")
     main:AddChild(tabGroup)
 
     return main
+end
+
+function UI:OpenTab(tabValue)
+    self:Build()
+    if not main then return end
+    if not main:IsShown() then main:Show() end
+    if tabGroup then tabGroup:SelectTab(tabValue) end
 end
 
 function UI:Toggle()
@@ -100,7 +118,7 @@ function UI:BuildStatusTab(container)
     local header = AceGUI:Create("Label")
     header:SetFullWidth(true)
     header:SetText(L["status_current_raid"]:format(
-        raidID and ns.RaidsByID[raidID] and ns.RaidsByID[raidID].name or L["none"],
+        raidID and ns.RaidsByID[raidID] and ns.RaidName(ns.RaidsByID[raidID]) or L["none"],
         SR:IsOpen() and "|cff00ff00" .. L["state_open"] .. "|r" or "|cffff5555" .. L["state_closed"] .. "|r"
     ))
     header:SetFontObject(GameFontHighlight)
@@ -189,5 +207,63 @@ function UI:BuildHistoryTab(container)
             entry.winner or "?",
             entry.note and entry.note ~= "" and (" (" .. entry.note .. ")") or ""))
         scroll:AddChild(lbl)
+    end
+end
+
+-- ============================================================
+-- SR History tab
+-- ============================================================
+
+function UI:BuildSRHistoryTab(container)
+    local scroll = AceGUI:Create("ScrollFrame")
+    scroll:SetLayout("List")
+    scroll:SetFullWidth(true)
+    scroll:SetFullHeight(true)
+    container:AddChild(scroll)
+
+    local history = MRT.SoftReserve and MRT.SoftReserve:GetHistory() or {}
+    if #history == 0 then
+        local lbl = AceGUI:Create("Label")
+        lbl:SetText(L["sr_history_empty"])
+        lbl:SetFullWidth(true)
+        scroll:AddChild(lbl)
+        return
+    end
+
+    for i = #history, 1, -1 do
+        local entry = history[i]
+        local raid = entry.raidID and ns.RaidsByID[entry.raidID]
+        local raidName = raid and ns.RaidName(raid) or (entry.raidID or "?")
+
+        local group = AceGUI:Create("InlineGroup")
+        group:SetTitle(string.format("%s — %s",
+            date("%Y-%m-%d %H:%M", entry.timestamp), raidName))
+        group:SetFullWidth(true)
+        group:SetLayout("List")
+        scroll:AddChild(group)
+
+        local players = {}
+        for player in pairs(entry.reserves or {}) do table.insert(players, player) end
+        table.sort(players)
+
+        if #players == 0 then
+            local empty = AceGUI:Create("Label")
+            empty:SetText("|cff888888" .. L["sr_history_no_reserves"] .. "|r")
+            empty:SetFullWidth(true)
+            group:AddChild(empty)
+        else
+            for _, player in ipairs(players) do
+                local items = entry.reserves[player] or {}
+                local linkParts = {}
+                for _, itemID in ipairs(items) do
+                    local link = select(2, GetItemInfo(itemID)) or ("item:" .. itemID)
+                    table.insert(linkParts, link)
+                end
+                local row = AceGUI:Create("Label")
+                row:SetFullWidth(true)
+                row:SetText(string.format("|cffffd200%s|r — %s", player, table.concat(linkParts, ", ")))
+                group:AddChild(row)
+            end
+        end
     end
 end

@@ -19,6 +19,37 @@ function SoftReserve:OnEnable()
     Comm:On(Comm.MSG.RESERVE_SYNC, function(p, s) self:OnRemoteSync(p, s) end)
 
     self:RegisterEvent("ENCOUNTER_START", "OnEncounterStart")
+
+    MRT.db.global.reserveHistory = MRT.db.global.reserveHistory or {}
+end
+
+local HISTORY_LIMIT = 100
+
+local function deepCopyReserves(src)
+    local out = {}
+    for player, items in pairs(src) do
+        local copy = {}
+        for i, id in ipairs(items) do copy[i] = id end
+        out[player] = copy
+    end
+    return out
+end
+
+function SoftReserve:Snapshot(reason)
+    if not currentRaidID then return end
+    local hasAny = false
+    for _, items in pairs(reserves) do
+        if items and #items > 0 then hasAny = true; break end
+    end
+    if not hasAny then return end
+    local hist = MRT.db.global.reserveHistory
+    table.insert(hist, {
+        timestamp = time(),
+        raidID    = currentRaidID,
+        reason    = reason,
+        reserves  = deepCopyReserves(reserves),
+    })
+    while #hist > HISTORY_LIMIT do table.remove(hist, 1) end
 end
 
 -- ============================================================
@@ -54,7 +85,11 @@ function SoftReserve:SetOpen(open)
         MRT:Print(L["sr_need_lead"])
         return false
     end
+    local wasOpen = reservesOpen
     reservesOpen = open and true or false
+    if wasOpen and not reservesOpen then
+        self:Snapshot("closed")
+    end
     MRT.Comm:Send(MRT.Comm.MSG.RESERVE_SYNC, {
         currentRaidID = currentRaidID,
         reservesOpen  = reservesOpen,
@@ -194,4 +229,8 @@ function SoftReserve:OnEncounterStart()
             self:SetOpen(false)
         end
     end
+end
+
+function SoftReserve:GetHistory()
+    return MRT.db.global.reserveHistory or {}
 end

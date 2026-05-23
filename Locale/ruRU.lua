@@ -7,16 +7,48 @@ L["status_ready"]        = "Готов."
 
 L["help_show"]           = " — открыть/закрыть окно"
 L["help_sync"]           = " — заново разослать рейд и лут-таблицу группе"
-L["help_casino"]         = " — казино роллы"
-L["help_cons"]           = " — сканер химии"
+L["help_dist"]           = " — открыть таб распределения лута"
+L["help_cons"]           = " — открыть таб расходников"
 
 L["none"]                = "не выбран"
 L["state_open"]          = "ОТКРЫТЫ"
 L["state_closed"]        = "ЗАКРЫТЫ"
 
 L["tab_reserves"]        = "Резервы"
+L["tab_distribute"]      = "Распределение"
+L["tab_consumables"]     = "Расходники"
 L["tab_status"]          = "Статус"
-L["tab_history"]         = "История"
+L["tab_history"]         = "История лута"
+L["tab_sr_history"]      = "История SR"
+
+L["sr_history_empty"]    = "История резервов пока пуста. Снимок сохраняется когда РЛ закрывает резервы или начинается бой."
+L["sr_history_no_reserves"] = "(никто не резервировал)"
+
+-- Distribute / loot pool / rolls
+L["pool_added_ml"]       = "В пул добавлено вещей: %d"
+L["pool_added_chat"]     = "Из чата: %s получил %s"
+L["pool_chat_tag"]       = "из чата"
+L["dist_need_lead"]      = "Распределение доступно только рейдлиду и ассистам."
+L["dist_pool_title"]     = "Пул лута"
+L["dist_pool_empty"]     = "Пул пуст. Вещи попадут сюда автоматически когда РЛ откроет мастер-лут на трупе босса."
+L["dist_unmapped"]       = "Без босса"
+L["btn_clear_pool"]      = "Очистить пул"
+L["popup_clear_pool"]    = "Очистить ВСЕ выпавшие вещи в текущем рейде?"
+L["btn_roll_sr"]         = "Ролл по SR"
+L["btn_roll_free"]       = "Свободный ролл"
+L["btn_roll_stop"]       = "Завершить ролл"
+L["btn_roll_clear"]      = "Скрыть результат"
+L["roll_announce_sr"]    = "Роллим %s. Резервы: %s. У вас %d сек — /roll"
+L["roll_announce_free"]  = "Роллим %s. Свободный ролл, %d сек — /roll"
+L["roll_winner"]         = "%s — победил %s с роллом %d"
+L["roll_nobody"]         = "Никто не сролил на %s"
+L["roll_panel_sr"]       = "Роллы (по резерву)"
+L["roll_panel_free"]     = "Роллы"
+L["roll_waiting"]        = "Ждём роллы..."
+
+-- Minimap
+L["minimap_lmb"]         = "открыть Meteora"
+L["minimap_rmb"]         = "настройки"
 
 L["pick_raid"]           = "Рейд"
 L["btn_open"]            = "Открыть резервы"
@@ -36,6 +68,8 @@ L["popup_clear_all"]     = "Сбросить ВСЕ софт-резервы дл
 L["you_reserved"]        = "Твои резервы"
 L["hint_pick_raid"]      = "Рейдлид ещё не выбрал рейд."
 L["boss_no_items"]       = "(пока нет предметов)"
+L["items_short"]         = "предм."
+L["reserves_short"]      = "рез."
 
 L["player_current_raid"] = "Рейд: |cffffd200%s|r   Резервы: %s"
 L["status_current_raid"] = "Рейд: %s   Резервы: %s"
@@ -59,25 +93,6 @@ L["sync_done"]           = "Лут-таблица и рейд разосланы
 L["sync_no_raid"]        = "Текущий рейд не выбран."
 
 L["history_empty"]       = "Истории лута пока нет."
-
--- Casino
-L["casino_intro"]        = "Казино — роллы по приколу."
-L["casino_announce"]     = "Раунд казино открыт! Приз: %s. /roll"
-L["casino_winner"]       = "%s выиграл казино с роллом %d! Приз: %s"
-L["casino_pot"]          = "%s забирает банк: %d %s"
-L["casino_round_title"]  = "Казино — %s"
-L["casino_stakes_on"]    = "Ставки ВКЛЮЧЕНЫ."
-L["casino_stakes_off"]   = "Без ставок."
-L["casino_your_bet"]     = "Ставка (%s)"
-L["casino_place_bet"]    = "Поставить"
-L["casino_bet_placed"]   = "Ставка принята: %d %s"
-L["casino_no_round"]     = "Нет активного раунда."
-L["casino_no_stakes"]    = "В этом раунде ставки выключены."
-L["casino_need_lead"]    = "Нужны права рейдлида или ассиста."
-L["casino_bet_range"]    = "Ставка от %d до %d."
-L["casino_bad_bet"]      = "Ставка должна быть числом."
-L["casino_help"]         = "/mrt casino open <prize> | close | bet <n> | roll"
-L["casino_generic_prize"] = "(без приза)"
 
 -- Consumables
 L["cons_missing"]        = "Без химии"

@@ -11,7 +11,9 @@ end
 
 local function raidDropdownList()
     local list = {}
-    for _, raid in ipairs(ns.Raids) do list[raid.id] = raid.name end
+    for _, raid in ipairs(ns.Raids) do
+        list[raid.id] = string.format("P%d — %s", raid.phase or 0, ns.RaidName(raid))
+    end
     return list
 end
 
@@ -174,7 +176,7 @@ function UI:BuildReservesTab(container)
     else
         local raidID = SR:GetCurrentRaid()
         local raid = raidID and ns.RaidsByID[raidID]
-        local raidName = raid and raid.name or L["none"]
+        local raidName = raid and ns.RaidName(raid) or L["none"]
         local statusLbl = AceGUI:Create("Label")
         statusLbl:SetFullWidth(true)
         statusLbl:SetText(L["player_current_raid"]:format(
@@ -224,13 +226,28 @@ function UI:BuildReservesTab(container)
     end
 
     for bossIndex, boss in ipairs(raid.bosses) do
+        local items = MRT.RaidLoot:GetItems(raidID, bossIndex)
+        local totalReserves = 0
+        for _, itemID in ipairs(items) do
+            totalReserves = totalReserves + #SR:GetReservesForItem(itemID)
+        end
+
+        local title = ns.BossName(boss)
+        if #items > 0 then
+            title = string.format("%s   |cffaaaaaa[%d %s]|r",
+                title, #items, L["items_short"])
+            if totalReserves > 0 then
+                title = title .. string.format("   |cffffd200%d %s|r",
+                    totalReserves, L["reserves_short"])
+            end
+        end
+
         local group = AceGUI:Create("InlineGroup")
-        group:SetTitle(boss.name)
+        group:SetTitle(title)
         group:SetFullWidth(true)
         group:SetLayout("List")
         scroll:AddChild(group)
 
-        local items = MRT.RaidLoot:GetItems(raidID, bossIndex)
         if #items == 0 then
             local empty = AceGUI:Create("Label")
             empty:SetText("|cff888888" .. L["boss_no_items"] .. "|r")

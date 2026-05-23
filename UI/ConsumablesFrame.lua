@@ -5,8 +5,6 @@ local UI = MRT.UI
 
 local AceGUI = LibStub("AceGUI-3.0")
 
-local consFrame
-
 local COLUMNS = { "flask", "battle", "guard", "food", "scroll", "oil", "pot", "drums" }
 local COLUMN_LABELS = {
     flask  = "Flask",
@@ -86,19 +84,3 @@ function UI:RefreshConsumablesTab()
     end
 end
 
-function UI:OpenConsumables(roster)
-    if consFrame then consFrame:Release() end
-    consFrame = AceGUI:Create("Frame")
-    consFrame:SetTitle(L["cons_window_title"])
-    consFrame:SetStatusText(L["cons_status"])
-    consFrame:SetLayout("Fill")
-    consFrame:SetWidth(640)
-    consFrame:SetHeight(440)
-    consFrame:SetCallback("OnClose", function(w) w:Hide(); consFrame = nil end)
-
-    local list = AceGUI:Create("ScrollFrame")
-    list:SetLayout("List")
-    consFrame:AddChild(list)
-    self._consList = list
-    self:RefreshConsumablesTab()
-end

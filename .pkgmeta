@@ -39,6 +39,10 @@ externals:
   Libs/LibSerialize:
     url: https://github.com/rossnichols/LibSerialize.git
     tag: latest
+  Libs/LibDataBroker-1.1:
+    url: https://repos.wowace.com/wow/libdatabroker-1-1/trunk
+  Libs/LibDBIcon-1.0:
+    url: https://repos.wowace.com/wow/libdbicon-1-0/trunk/LibDBIcon-1.0
 
 ignore:
   - tools

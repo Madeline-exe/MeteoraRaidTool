@@ -18,9 +18,9 @@ local MSG = {
     LOOT_VOTE     = "ltVote",
     LOOT_CLOSE    = "ltClose",
     LOOT_AWARD    = "ltAward",
-    CASINO_OPEN   = "csOpen",
-    CASINO_BET    = "csBet",
-    CASINO_CLOSE  = "csClose",
+    POOL_SYNC     = "plSync",
+    ROLL_START    = "rlStart",
+    ROLL_END      = "rlEnd",
     CONS_REPORT   = "cnRep",
 }
 Comm.MSG = MSG

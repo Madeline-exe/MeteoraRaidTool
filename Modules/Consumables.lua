@@ -119,8 +119,8 @@ function Consumables:WarnMissing()
 end
 
 function Consumables:OpenWindow()
-    if MRT.UI and MRT.UI.OpenConsumables then
-        self:RefreshRoster()
-        MRT.UI:OpenConsumables(roster)
+    self:RefreshRoster()
+    if MRT.UI and MRT.UI.OpenTab then
+        MRT.UI:OpenTab("consumables")
     end
 end

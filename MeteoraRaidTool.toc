@@ -1,9 +1,9 @@
 ## Interface: 20505
 ## Title: Meteora Raid Tool
-## Notes: Guild raid management: loot council, soft-reserves, casino rolls and consumable tracking.
-## Notes-ruRU: Гильдейский рейд-инструмент: лут-совет, софт-резервы, казино-роллы и трекинг расходников.
+## Notes: Guild raid management: soft-reserves, loot distribution with rolls, consumable tracking.
+## Notes-ruRU: Гильдейский рейд-инструмент: софт-резервы, распределение лута с роллами, трекинг расходников.
 ## Author: Meteora
-## Version: 0.3.0
+## Version: 0.4.0
 ## SavedVariables: MeteoraRaidToolDB
 ## SavedVariablesPerCharacter: MeteoraRaidToolCharDB
 ## OptionalDeps: Ace3
@@ -28,6 +28,8 @@ Libs\AceGUI-3.0\AceGUI-3.0.xml
 Libs\AceConfig-3.0\AceConfig-3.0.xml
 Libs\LibDeflate\LibDeflate.lua
 Libs\LibSerialize\LibSerialize.lua
+Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+Libs\LibDBIcon-1.0\LibDBIcon-1.0.lua
 #@end-no-lib-strip@
 
 Locale\enUS.lua
@@ -43,10 +45,8 @@ Modules\RaidLoot.lua
 Modules\SoftReserve.lua
 Modules\Loot.lua
 Modules\Consumables.lua
-Modules\Casino.lua
 
 UI\MainFrame.lua
 UI\SoftReserveFrame.lua
 UI\LootFrame.lua
 UI\ConsumablesFrame.lua
-UI\CasinoFrame.lua

@@ -78,19 +78,15 @@ local defaults = {
             trackGuardianElixirs = true,
             warnMissingAtPull = true,
         },
-        casino = {
-            enableStakes = false,
-            stakeUnit = "DKP",
-            minStake = 0,
-            maxStake = 1000,
-            historyLimit = 50,
+        minimap = {
+            hide = false,
         },
     },
     global = {
         lootHistory = {},
         reserveHistory = {},
         consumableLog = {},
-        casinoHistory = {},
+        lootPool = {},
     },
     char = {
         epgp = { ep = 0, gp = 0 },
@@ -112,7 +108,33 @@ function MRT:OnEnable()
     self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnPlayerEnteringWorld")
     self:RegisterEvent("RAID_ROSTER_UPDATE", "OnRosterUpdate")
     self:RegisterEvent("GROUP_ROSTER_UPDATE", "OnRosterUpdate")
+    self:SetupMinimapButton()
     self:Print(L["loaded"]:format(self.version))
+end
+
+function MRT:SetupMinimapButton()
+    local LDB = LibStub("LibDataBroker-1.1", true)
+    local Icon = LibStub("LibDBIcon-1.0", true)
+    if not LDB or not Icon then return end
+
+    local dataObj = LDB:NewDataObject(ADDON_NAME, {
+        type  = "launcher",
+        label = "Meteora",
+        icon  = "Interface\\Icons\\INV_Misc_Dice_01",
+        OnClick = function(_, button)
+            if button == "RightButton" then
+                MRT:OpenConfig()
+            else
+                if MRT.UI and MRT.UI.Toggle then MRT.UI:Toggle() end
+            end
+        end,
+        OnTooltipShow = function(tooltip)
+            tooltip:AddLine("Meteora Raid Tool")
+            tooltip:AddLine("|cffeda55fЛКМ|r — " .. (L["minimap_lmb"] or "открыть"), 1, 1, 1)
+            tooltip:AddLine("|cffeda55fПКМ|r — " .. (L["minimap_rmb"] or "настройки"), 1, 1, 1)
+        end,
+    })
+    Icon:Register(ADDON_NAME, dataObj, self.db.profile.minimap)
 end
 
 function MRT:OnPlayerEnteringWorld(_, isInitial)
@@ -148,13 +170,13 @@ function MRT:OnSlashCommand(input)
                 self:Print(L["sync_no_raid"])
             end
         end
-    elseif cmd == "casino" then
-        if self.Casino and self.Casino.HandleSlash then
-            self.Casino:HandleSlash(rest)
-        end
     elseif cmd == "consumables" or cmd == "cons" then
-        if self.Consumables and self.Consumables.OpenWindow then
-            self.Consumables:OpenWindow()
+        if self.UI and self.UI.OpenTab then
+            self.UI:OpenTab("consumables")
+        end
+    elseif cmd == "distribute" or cmd == "dist" then
+        if self.UI and self.UI.OpenTab then
+            self.UI:OpenTab("distribute")
         end
     elseif cmd == "config" or cmd == "options" then
         self:OpenConfig()
@@ -168,8 +190,8 @@ end
 function MRT:PrintHelp()
     self:Print("|cffffd200/mrt|r " .. L["help_show"])
     self:Print("|cffffd200/mrt sync|r " .. L["help_sync"])
-    self:Print("|cffffd200/mrt casino|r " .. L["help_casino"])
-    self:Print("|cffffd200/mrt consumables|r " .. L["help_cons"])
+    self:Print("|cffffd200/mrt dist|r " .. L["help_dist"])
+    self:Print("|cffffd200/mrt cons|r " .. L["help_cons"])
 end
 
 function MRT:OpenConfig()
