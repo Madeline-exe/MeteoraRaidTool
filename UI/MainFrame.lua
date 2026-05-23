@@ -13,8 +13,12 @@ UI.editMode = false
 local function safeBuild(group, container)
     container:ReleaseChildren()
     -- Hide custom Frame-API panels owned by the previous tab.
-    if UI.HideDistributePanel then UI:HideDistributePanel() end
-    if UI.HideReservesPanel   then UI:HideReservesPanel()   end
+    if UI.HideDistributePanel  then UI:HideDistributePanel()  end
+    if UI.HideReservesPanel    then UI:HideReservesPanel()    end
+    if UI.HideStatusPanel      then UI:HideStatusPanel()      end
+    if UI.HideHistoryPanel     then UI:HideHistoryPanel()     end
+    if UI.HideSRHistoryPanel   then UI:HideSRHistoryPanel()   end
+    if UI.HideConsumablesPanel then UI:HideConsumablesPanel() end
     local ok, err = pcall(function()
         if group == "reserves" then
             UI:BuildReservesTab(container)

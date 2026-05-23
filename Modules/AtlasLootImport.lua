@@ -5,25 +5,25 @@ local L = ns.L
 local Importer = MRT:NewModule("AtlasLootImport", "AceEvent-3.0")
 MRT.AtlasLootImport = Importer
 
--- Map our raid IDs → likely AtlasLoot ItemDB content keys.
--- AtlasLootClassic uses Title-Cased English keys; some have spaces or apostrophes.
--- We try multiple candidates per raid and accept the first match.
+-- Map our raid IDs → AtlasLootClassic content keys (confirmed via /mrt atlasdump
+-- against AtlasLootClassic_DungeonsAndRaids).
 local CONTENT_KEYS = {
-    karazhan    = { "Karazhan", "KARAZHAN" },
-    gruul       = { "GruulsLair", "Gruul", "Gruul's Lair" },
-    magtheridon = { "MagtheridonsLair", "Magtheridon", "Magtheridon's Lair" },
-    ssc         = { "SerpentshrineCavern", "SerpentshrineCaverns", "Serpentshrine Cavern", "SSC" },
-    tk          = { "TempestKeep", "TheEye", "The Eye", "TK" },
-    za          = { "ZulAman", "Zul'Aman" },
-    hyjal       = { "HyjalSummit", "Hyjal Summit", "MountHyjal", "Mount Hyjal" },
-    bt          = { "BlackTemple", "Black Temple", "BT" },
-    sunwell     = { "SunwellPlateau", "Sunwell Plateau", "SWP" },
+    karazhan    = { "Karazhan" },
+    gruul       = { "GruulsLair" },
+    magtheridon = { "MagtheridonsLair" },
+    ssc         = { "SerpentshrineCavern" },
+    tk          = { "TempestKeep" },
+    za          = { "ZulAman" },
+    hyjal       = { "HyjalSummit" },
+    bt          = { "BlackTemple" },
+    sunwell     = { "SunwellPlateau" },
 }
 
--- AtlasLoot module names we'll probe (different forks call them differently).
+-- AtlasLoot module names we probe (in order). AtlasLootClassic bundles all
+-- TBC raids inside AtlasLootClassic_DungeonsAndRaids.
 local MODULE_CANDIDATES = {
+    "AtlasLootClassic_DungeonsAndRaids",
     "AtlasLootClassic_BurningCrusade",
-    "AtlasLootClassic_BurningCrusade_Raids",
     "AtlasLoot_BurningCrusade",
 }
 
@@ -82,9 +82,13 @@ end
 local function findRaidContent(storage, raidID)
     for _, modName in ipairs(MODULE_CANDIDATES) do
         local mod = storage[modName]
-        if mod and mod.items then
+        if mod then
             for _, key in ipairs(CONTENT_KEYS[raidID] or {}) do
-                if mod.items[key] then return mod.items[key], modName, key end
+                -- Modern AtlasLootClassic: content lives as fields directly on the module
+                -- (mod.Karazhan, mod.GruulsLair, ...). Old layouts had a nested .items table.
+                local raw = mod[key]
+                if type(raw) == "table" then return raw, modName, key end
+                if mod.items and mod.items[key] then return mod.items[key], modName, key end
             end
         end
     end
@@ -199,8 +203,53 @@ function Importer:Dump(raidID)
         local storage = findItemDB()
         if storage then
             local content, modName, contentKey = findRaidContent(storage, raidID)
-            MRT:Print("  findRaidContent → " ..
-                (content and ("HIT mod=" .. tostring(modName) .. " key=" .. tostring(contentKey)) or "MISS"))
+            if content then
+                MRT:Print("  findRaidContent → HIT mod=" .. tostring(modName) .. " key=" .. tostring(contentKey))
+
+                -- Show top-level fields of the content table
+                local fields = {}
+                for k in pairs(content) do table.insert(fields, tostring(k)) end
+                table.sort(fields)
+                local preview = table.concat(fields, ", ")
+                if #preview > 220 then preview = preview:sub(1, 220) .. " ..." end
+                MRT:Print("  content fields: " .. preview)
+
+                -- Sample first boss entry's shape
+                for k, v in pairs(content) do
+                    if type(v) == "table" then
+                        local bossFields = {}
+                        local i = 0
+                        for k2, v2 in pairs(v) do
+                            i = i + 1
+                            if i <= 6 then
+                                local desc = type(v2) == "table"
+                                    and ("table#" .. (#v2 or 0))
+                                    or ("(" .. type(v2) .. ") " .. tostring(v2):sub(1, 30))
+                                table.insert(bossFields, tostring(k2) .. "=" .. desc)
+                            end
+                        end
+                        MRT:Print(string.format("  sample boss [%s]: %s", tostring(k),
+                            table.concat(bossFields, " | ")))
+                        -- Drill one level: if v.items / v[1] is a table, show its first few rows
+                        local probe = v.items or v[1] or v.Items
+                        if type(probe) == "table" then
+                            local sample = {}
+                            for j = 1, math.min(3, #probe) do
+                                local row = probe[j]
+                                if type(row) == "table" then
+                                    local rs = {}
+                                    for ri = 1, math.min(4, #row) do rs[ri] = tostring(row[ri]) end
+                                    table.insert(sample, "[" .. table.concat(rs, ",") .. "]")
+                                end
+                            end
+                            MRT:Print("    items rows: " .. table.concat(sample, " "))
+                        end
+                        break
+                    end
+                end
+            else
+                MRT:Print("  findRaidContent → MISS")
+            end
         end
     end
     MRT:Print("|cffffd200=== end dump ===|r")
