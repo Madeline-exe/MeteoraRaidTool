@@ -339,11 +339,11 @@ local function layoutItemRow(row, entry, width)
     if #reservers > 0 then
         local marked = {}
         for _, p in ipairs(reservers) do
-            if SR:IsViaWhisper(p) then
-                table.insert(marked, p .. "|cff888888[W]|r")
-            else
-                table.insert(marked, p)
-            end
+            local n = SR and SR.GetReserveCountForItem and SR:GetReserveCountForItem(p, entry.itemID) or 1
+            local label = p
+            if n > 1 then label = label .. " x" .. n end
+            if SR:IsViaWhisper(p) then label = label .. "|cff888888[W]|r" end
+            table.insert(marked, label)
         end
         table.insert(lines, "|cffff8800" .. L["award_sr"] .. ":|r " .. table.concat(marked, ", "))
     else

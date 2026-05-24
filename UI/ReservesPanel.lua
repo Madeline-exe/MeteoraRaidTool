@@ -55,12 +55,16 @@ local function createItemRow(parent)
     Skin:ApplyDark(row.frame, Skin.color.bgAlt, Skin.color.border)
     row.frame:SetHeight(ROW_HEIGHT)
 
-    row.starBtn = Skin:CreateButton(row.frame, "+", 36, 22)
-    row.starBtn:SetPoint("LEFT", row.frame, "LEFT", 4, 0)
-    row.starBtn:GetFontString():SetTextColor(unpack(Skin.color.accent))
+    row.plusBtn = Skin:CreateButton(row.frame, "+", 24, 22)
+    row.plusBtn:SetPoint("LEFT", row.frame, "LEFT", 4, 0)
+    row.plusBtn:GetFontString():SetTextColor(unpack(Skin.color.accent))
+
+    row.minusBtn = Skin:CreateButton(row.frame, "-", 24, 22)
+    row.minusBtn:SetPoint("LEFT", row.plusBtn, "RIGHT", 2, 0)
+    row.minusBtn:GetFontString():SetTextColor(unpack(Skin.color.danger))
 
     row.iconBtn = Skin:CreateIconButton(row.frame, 24)
-    row.iconBtn:SetPoint("LEFT", row.starBtn, "RIGHT", 4, 0)
+    row.iconBtn:SetPoint("LEFT", row.minusBtn, "RIGHT", 4, 0)
     row.iconBtn:SetScript("OnEnter", function(b)
         if not row.itemID then return end
         GameTooltip:SetOwner(b, "ANCHOR_RIGHT")
@@ -345,26 +349,34 @@ local function layoutItemRow(row, itemID, raidID, bossIndex)
 
     local SR = MRT.SoftReserve
     local me = UnitName("player")
-    local reserved = SR:HasReserved(me, itemID)
+    local myCount = SR:GetReserveCountForItem(me, itemID)
     local reservers = SR:GetReservesForItem(itemID)
+    local canReserve = SR:CanReserve()
+    local atMax = SR:CountForPlayer(me) >= SR:GetMaxPerPlayer()
 
-    row.starBtn:GetFontString():SetText(reserved and "-" or "+")
-    if SR:CanReserve() then row.starBtn:Enable() else row.starBtn:Disable() end
-    row.starBtn:SetScript("OnClick", function()
-        SR:ToggleReserve(itemID); UI:Refresh()
+    if canReserve and not atMax then row.plusBtn:Enable() else row.plusBtn:Disable() end
+    row.plusBtn:SetScript("OnClick", function()
+        SR:AddReserveForSelf(itemID); UI:Refresh()
+    end)
+
+    if canReserve and myCount > 0 then row.minusBtn:Enable() else row.minusBtn:Disable() end
+    row.minusBtn:SetScript("OnClick", function()
+        SR:RemoveReserveForSelf(itemID); UI:Refresh()
     end)
 
     if #reservers > 0 then
         local marked = {}
+        local total = 0
         for _, p in ipairs(reservers) do
-            if SR:IsViaWhisper(p) then
-                table.insert(marked, p .. "|cff888888[W]|r")
-            else
-                table.insert(marked, p)
-            end
+            local n = SR:GetReserveCountForItem(p, itemID)
+            total = total + n
+            local label = p
+            if n > 1 then label = label .. " x" .. n end
+            if SR:IsViaWhisper(p) then label = label .. "|cff888888[W]|r" end
+            table.insert(marked, label)
         end
-        row.resFS:SetText(string.format("|cffffd200%d|r — %s",
-            #reservers, table.concat(marked, ", ")))
+        row.resFS:SetText(string.format("|cffffd200%d|r - %s",
+            total, table.concat(marked, ", ")))
     else
         row.resFS:SetText("")
     end
@@ -494,7 +506,9 @@ local function refresh()
 
         local totalReserves = 0
         for _, itemID in ipairs(items) do
-            totalReserves = totalReserves + #SR:GetReservesForItem(itemID)
+            for _, p in ipairs(SR:GetReservesForItem(itemID)) do
+                totalReserves = totalReserves + SR:GetReserveCountForItem(p, itemID)
+            end
         end
         local meta = string.format("%d %s", #items, L["items_short"])
         if totalReserves > 0 then

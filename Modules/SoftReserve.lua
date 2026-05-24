@@ -184,6 +184,18 @@ function SoftReserve:CountForPlayer(player)
     return list and #list or 0
 end
 
+-- How many of their SR slots this player has spent on a specific item.
+-- Multi-reserve lets a player stack the same item to increase their priority.
+function SoftReserve:GetReserveCountForItem(player, itemID)
+    local list = reserves[player]
+    if not list then return 0 end
+    local n = 0
+    for _, id in ipairs(list) do
+        if id == itemID then n = n + 1 end
+    end
+    return n
+end
+
 -- Mark which players reserved through a whisper flow (no addon installed).
 -- Cleared when the player is removed entirely.
 local viaWhisper = {}
@@ -200,9 +212,6 @@ function SoftReserve:AddForPlayer(player, itemID, opts)
     if not reservesOpen then return "closed" end
 
     reserves[player] = reserves[player] or {}
-    for _, id in ipairs(reserves[player]) do
-        if id == itemID then return "already" end
-    end
     if #reserves[player] >= self:GetMaxPerPlayer() then return "max" end
 
     -- Item must be in this raid's drop table to count.
@@ -225,7 +234,7 @@ function SoftReserve:AddForPlayer(player, itemID, opts)
     return "ok"
 end
 
-function SoftReserve:ToggleReserve(itemID)
+function SoftReserve:AddReserveForSelf(itemID)
     if not self:CanReserve() then
         MRT:Print(L["sr_closed"])
         return
@@ -233,15 +242,6 @@ function SoftReserve:ToggleReserve(itemID)
     local me = UnitName("player")
     reserves[me] = reserves[me] or {}
     local list = reserves[me]
-
-    for i, id in ipairs(list) do
-        if id == itemID then
-            table.remove(list, i)
-            MRT.Comm:Send(MRT.Comm.MSG.RESERVE_DEL, { player = me, itemID = itemID })
-            MRT:SendMessage("MRT_SR_STATE_CHANGED")
-            return
-        end
-    end
 
     local maxN = self:GetMaxPerPlayer()
     if #list >= maxN then
@@ -252,6 +252,25 @@ function SoftReserve:ToggleReserve(itemID)
     table.insert(list, itemID)
     MRT.Comm:Send(MRT.Comm.MSG.RESERVE_SET, { player = me, itemID = itemID })
     MRT:SendMessage("MRT_SR_STATE_CHANGED")
+end
+
+function SoftReserve:RemoveReserveForSelf(itemID)
+    if not self:CanReserve() then
+        MRT:Print(L["sr_closed"])
+        return
+    end
+    local me = UnitName("player")
+    local list = reserves[me]
+    if not list then return end
+
+    for i = #list, 1, -1 do
+        if list[i] == itemID then
+            table.remove(list, i)
+            MRT.Comm:Send(MRT.Comm.MSG.RESERVE_DEL, { player = me, itemID = itemID })
+            MRT:SendMessage("MRT_SR_STATE_CHANGED")
+            return
+        end
+    end
 end
 
 -- ============================================================
@@ -265,9 +284,7 @@ function SoftReserve:OnRemoteSet(payload, sender)
     end
     local player = payload.player or ambig(sender)
     reserves[player] = reserves[player] or {}
-    for _, id in ipairs(reserves[player]) do
-        if id == payload.itemID then return end
-    end
+    -- No duplicate check: multi-reserve is intentional.
     table.insert(reserves[player], payload.itemID)
     MRT:SendMessage("MRT_SR_STATE_CHANGED")
 end
@@ -278,8 +295,14 @@ function SoftReserve:OnRemoteDel(payload, sender)
     if payload.itemID then
         local list = reserves[player]
         if list then
-            for i, id in ipairs(list) do
-                if id == payload.itemID then table.remove(list, i); break end
+            if payload.all then
+                for i = #list, 1, -1 do
+                    if list[i] == payload.itemID then table.remove(list, i) end
+                end
+            else
+                for i, id in ipairs(list) do
+                    if id == payload.itemID then table.remove(list, i); break end
+                end
             end
         end
     else

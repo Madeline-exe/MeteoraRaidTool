@@ -113,8 +113,13 @@ function Loot:OnLootOpened()
     local raidID = currentRaidID()
     if not raidID then return end
 
-    local bossIndex = lastEncounter and lastEncounter.bossIndex or 0
-    local bossName  = lastEncounter and lastEncounter.name or nil
+    -- Trash kills (no ENCOUNTER_START/END) → bossIndex 0 instead of leaking
+    -- onto the previous boss. Anything older than 2 min is treated as trash.
+    local bossIndex, bossName = 0, nil
+    if lastEncounter and (time() - lastEncounter.time) < 120 then
+        bossIndex = lastEncounter.bossIndex or 0
+        bossName  = lastEncounter.name
+    end
 
     local added = 0
     for slot = 1, (GetNumLootItems and GetNumLootItems() or 0) do
@@ -179,9 +184,10 @@ end
 
 function Loot:OnChatLoot(_, msg)
     if not (MRT:IsRaidLeader() or MRT:IsRaidAssistant()) then return end
-    if not isRecentEncounter() then return end
     local raidID = currentRaidID()
     if not raidID then return end
+    -- No isRecentEncounter gate: trash drops also need to enter the pool
+    -- (with bossIndex 0) when group/personal loot is on and ML scrape missed.
 
     initLootPatterns()
     local player, link
@@ -210,12 +216,17 @@ function Loot:OnChatLoot(_, msg)
     if seenAwards[key] then return end
     seenAwards[key] = true
 
+    local bossIndex, bossName = 0, nil
+    if lastEncounter and (time() - lastEncounter.time) < 120 then
+        bossIndex = lastEncounter.bossIndex or 0
+        bossName  = lastEncounter.name
+    end
     self:AddToPool({
         itemID    = itemID,
         link      = link,
         raidID    = raidID,
-        bossIndex = lastEncounter.bossIndex or 0,
-        bossName  = lastEncounter.name,
+        bossIndex = bossIndex,
+        bossName  = bossName,
         source    = "chat",
         autoWinner = player,
     })
@@ -231,11 +242,23 @@ function Loot:AddToPool(entry)
     local raidID = entry.raidID
     local bossIndex = entry.bossIndex or 0
     local slot = ensurePoolSlot(raidID, bossIndex)
-    -- Dedup window: identical itemID added within 5s.
     local now = time()
     for _, e in ipairs(slot) do
-        if e.itemID == entry.itemID and math.abs((e.time or 0) - now) < 5 then
-            return e
+        if e.itemID == entry.itemID then
+            -- Same item within 5s = same physical drop double-reported.
+            local sameWindow = math.abs((e.time or 0) - now) < 5
+            -- CHAT_MSG_LOOT for an ML-distributed item arrives anywhere from
+            -- a few seconds up to "after RL finally gives it out". Treat any
+            -- ML entry from this loot session as the source of truth and fold
+            -- the chat event into it instead of adding a duplicate row.
+            local mlBeatsChat = (e.source == "ml" and entry.source == "chat")
+                and math.abs((e.time or 0) - now) < 600
+            if sameWindow or mlBeatsChat then
+                if entry.autoWinner and not e.autoWinner then
+                    e.autoWinner = entry.autoWinner
+                end
+                return e
+            end
         end
     end
     entry.uid    = newUID()
@@ -322,18 +345,22 @@ function Loot:Award(entry, winner, note)
         SendChatMessage(L["loot_announce"]:format(raidLink, winner, note or ""), MRT.db.profile.loot.announceChannel)
     end
 
-    -- Best-effort: remove the awarded item from the winner's reserves.
+    -- Best-effort: drop ALL reserve slots the winner spent on this item.
+    -- Multi-reserve means they may have stacked it; once awarded, the extra
+    -- slots are dead weight and should not block them from other rolls.
     if MRT.SoftReserve then
         local res = MRT.SoftReserve:GetAll()[winner]
         if res then
-            for i, id in ipairs(res) do
-                if id == entry.itemID then
+            local removed = false
+            for i = #res, 1, -1 do
+                if res[i] == entry.itemID then
                     table.remove(res, i)
-                    if MRT.Comm then
-                        MRT.Comm:Send(MRT.Comm.MSG.RESERVE_DEL, { player = winner, itemID = id })
-                    end
-                    break
+                    removed = true
                 end
+            end
+            if removed and MRT.Comm then
+                MRT.Comm:Send(MRT.Comm.MSG.RESERVE_DEL,
+                    { player = winner, itemID = entry.itemID, all = true })
             end
         end
     end
@@ -353,7 +380,17 @@ end
 local activeRoll = nil
 
 function Loot:StartRoll(entry, mode, allowedPlayers, timeoutSec)
-    if activeRoll then self:StopRoll() end
+    if activeRoll then
+        -- A previous roll that already announced its winner must be cleared
+        -- silently — re-running StopRoll would re-broadcast that winner under
+        -- the new item's notification.
+        if activeRoll.ended then
+            if activeRoll.timer then self:CancelTimer(activeRoll.timer); activeRoll.timer = nil end
+            activeRoll = nil
+        else
+            self:StopRoll()
+        end
+    end
     timeoutSec = timeoutSec or 30
     local allowedSet
     if mode == "sr" and allowedPlayers and #allowedPlayers > 0 then
@@ -385,6 +422,7 @@ end
 
 function Loot:StopRoll()
     if not activeRoll then return end
+    if activeRoll.ended then return end
     if activeRoll.timer then self:CancelTimer(activeRoll.timer); activeRoll.timer = nil end
     local link = activeRoll.entry.link or ("item:" .. activeRoll.entry.itemID)
     local top, topRoll
@@ -428,7 +466,9 @@ function Loot:OnChatSystem(_, msg)
     local player, roll, low, high = msg:match(pat)
     if not player then return end
     low, high = tonumber(low), tonumber(high)
-    if low ~= 1 or high ~= 100 then return end
+    -- Accept any 1-N range (/roll 100, /roll 99, /roll 50, ...). Only filter
+    -- PVP-style ranges that don't start at 1 (e.g. /roll 50 80).
+    if low ~= 1 or not high or high < 2 then return end
     local r = tonumber(roll)
     if not r then return end
     local short = Ambiguate(player, "short")
