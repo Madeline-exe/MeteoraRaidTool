@@ -1,6 +1,17 @@
 local ADDON_NAME, ns = ...
 
-local function boss(name, nameRU) return { name = name, nameRU = nameRU } end
+local function boss(name, nameRU, opts)
+    local b = { name = name, nameRU = nameRU }
+    if opts then
+        b.aliases = opts.aliases
+        b.isTrash = opts.isTrash
+    end
+    return b
+end
+
+local function trash()
+    return boss("Trash Mobs", "Трэш", { isTrash = true })
+end
 
 ns.Raids = {
     {
@@ -14,7 +25,18 @@ ns.Raids = {
             boss("Attumen the Huntsman", "Аттумен Охотник"),
             boss("Moroes", "Мороэс"),
             boss("Maiden of Virtue", "Дева Добродетели"),
-            boss("Opera Event", "Опера"),
+            boss("Opera Event", "Опера", { aliases = {
+                "The Big Bad Wolf",
+                "Big Bad Wolf",
+                "The Crone",
+                "Crone",
+                "Wizard of Oz",
+                "Dorothee",
+                "Romulo and Julianne",
+                "Romulo & Julianne",
+                "Romulo",
+                "Julianne",
+            } }),
             boss("The Curator", "Куратор"),
             boss("Terestian Illhoof", "Терестиан Зловещекопыт"),
             boss("Shade of Aran", "Призрак Арана"),
@@ -22,6 +44,7 @@ ns.Raids = {
             boss("Chess Event", "Шахматное событие"),
             boss("Prince Malchezaar", "Принц Малчезаар"),
             boss("Nightbane", "Полуночник"),
+            trash(),
         },
     },
     {
@@ -34,6 +57,7 @@ ns.Raids = {
         bosses = {
             boss("High King Maulgar", "Верховный король Молгар"),
             boss("Gruul the Dragonkiller", "Груул Драконобой"),
+            trash(),
         },
     },
     {
@@ -45,6 +69,7 @@ ns.Raids = {
         phase = 1,
         bosses = {
             boss("Magtheridon", "Магтеридон"),
+            trash(),
         },
     },
     {
@@ -61,6 +86,7 @@ ns.Raids = {
             boss("Fathom-Lord Karathress", "Лорд Глубин Каратресс"),
             boss("Morogrim Tidewalker", "Морогрим Волноход"),
             boss("Lady Vashj", "Леди Вайш"),
+            trash(),
         },
     },
     {
@@ -75,6 +101,7 @@ ns.Raids = {
             boss("Void Reaver", "Опустошитель Бездны"),
             boss("High Astromancer Solarian", "Верховный астромант Соларианна"),
             boss("Kael'thas Sunstrider", "Кель'тас Солнечный Скиталец"),
+            trash(),
         },
     },
     {
@@ -91,6 +118,7 @@ ns.Raids = {
             boss("Halazzi", "Халаззи"),
             boss("Hex Lord Malacrass", "Властитель Порчи Малакрасс"),
             boss("Zul'jin", "Зул'джин"),
+            trash(),
         },
     },
     {
@@ -106,6 +134,7 @@ ns.Raids = {
             boss("Kaz'rogal", "Каз'рогал"),
             boss("Azgalor", "Азгалор"),
             boss("Archimonde", "Архимонд"),
+            trash(),
         },
     },
     {
@@ -125,6 +154,7 @@ ns.Raids = {
             boss("Mother Shahraz", "Мать Шахраз"),
             boss("Illidari Council", "Совет Иллидари"),
             boss("Illidan Stormrage", "Иллидан Ярость Бури"),
+            trash(),
         },
     },
     {
@@ -141,6 +171,7 @@ ns.Raids = {
             boss("The Eredar Twins", "Близнецы Эредар"),
             boss("M'uru", "М'уру"),
             boss("Kil'jaeden", "Кил'джеден"),
+            trash(),
         },
     },
 }

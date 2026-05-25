@@ -19,6 +19,22 @@ local CONTENT_KEYS = {
     sunwell     = { "SunwellPlateau" },
 }
 
+-- Additional content keys to probe for trash / misc loot. AtlasLootClassic
+-- ships trash either as a sibling field on the module (KarazhanTrash) or as
+-- one entry inside the main raid bossArray with a name like "Trash Mobs".
+-- We probe both shapes below.
+local TRASH_CONTENT_KEYS = {
+    karazhan    = { "KarazhanTrash", "KarazhanT" },
+    gruul       = { "GruulsLairTrash" },
+    magtheridon = { "MagtheridonsLairTrash" },
+    ssc         = { "SerpentshrineCavernTrash" },
+    tk          = { "TempestKeepTrash" },
+    za          = { "ZulAmanTrash" },
+    hyjal       = { "HyjalSummitTrash" },
+    bt          = { "BlackTempleTrash" },
+    sunwell     = { "SunwellPlateauTrash" },
+}
+
 -- AtlasLoot module names we probe (in order). AtlasLootClassic bundles all
 -- TBC raids inside AtlasLootClassic_DungeonsAndRaids.
 local MODULE_CANDIDATES = {
@@ -122,11 +138,11 @@ local function bossArrayOf(content)
     return nil
 end
 
-local function findRaidContent(storage, raidID)
+local function findContent(storage, keys)
     for _, modName in ipairs(MODULE_CANDIDATES) do
         local mod = storage[modName]
         if mod then
-            for _, key in ipairs(CONTENT_KEYS[raidID] or {}) do
+            for _, key in ipairs(keys or {}) do
                 -- Modern AtlasLootClassic: content lives as fields directly on the module
                 -- (mod.Karazhan, mod.GruulsLair, ...). Old layouts had a nested .items table.
                 local raw = mod[key]
@@ -135,6 +151,14 @@ local function findRaidContent(storage, raidID)
             end
         end
     end
+end
+
+local function findRaidContent(storage, raidID)
+    return findContent(storage, CONTENT_KEYS[raidID])
+end
+
+local function findTrashContent(storage, raidID)
+    return findContent(storage, TRASH_CONTENT_KEYS[raidID])
 end
 
 -- ============================================================
@@ -321,53 +345,117 @@ function Importer:ImportRaid(raidID)
     end
 
     -- Build a name → entry map so we can match by AtlasLoot's boss name.
+    -- An entry may need to be matched by multiple aliases (Opera variants),
+    -- so we don't remove from byName as we match — we track "claimed" entries
+    -- separately and feed everything unclaimed into the trash bucket.
     local byName = {}
     local sequential = {}
+    local allEntries = {}
     for k, v in pairs(bossArray) do
-        if type(v) == "table" then
-            local nm = readBossName(v)
-            if nm then byName[nm:lower()] = v end
+        -- Only real boss entries: a table with a readable name. This skips
+        -- AtlasLoot metadata blobs like __atlaslootdata / MapID that live on
+        -- the same content table when bossArrayOf falls back to `content`.
+        if type(v) == "table" and readBossName(v) then
+            byName[readBossName(v):lower()] = v
             if type(k) == "number" then sequential[k] = v end
+            table.insert(allEntries, v)
+        end
+    end
+
+    local function matchByName(candidate)
+        if not candidate then return nil end
+        local c = candidate:lower()
+        local exact = byName[c]
+        if exact then return exact end
+        for lname, entry in pairs(byName) do
+            if lname:find(c, 1, true) or c:find(lname, 1, true) then
+                return entry
+            end
+        end
+        return nil
+    end
+
+    -- Resolve every named boss first. For each boss collect ALL matching
+    -- AtlasLoot entries (boss + aliases) and merge their item IDs. Mark each
+    -- matched entry as claimed so it doesn't also end up in the trash bucket.
+    local claimed = {}
+    local bossHits = {}     -- bossIndex → { entry1, entry2, ... }
+    local trashBossIndex = nil
+
+    for bossIndex, boss in ipairs(raid.bosses) do
+        if boss.isTrash then
+            trashBossIndex = bossIndex
+        else
+            local hits = {}
+            local candidates = { boss.name, boss.nameRU }
+            if boss.aliases then
+                for _, a in ipairs(boss.aliases) do table.insert(candidates, a) end
+            end
+            local seenHits = {}
+            for _, candidate in ipairs(candidates) do
+                local hit = matchByName(candidate)
+                if hit and not seenHits[hit] then
+                    seenHits[hit] = true
+                    table.insert(hits, hit)
+                end
+            end
+            -- Sequential fallback only if nothing matched by name — preserves
+            -- the previous behavior for raids whose AtlasLoot names drift.
+            if #hits == 0 then
+                local seq = sequential[bossIndex]
+                if seq then table.insert(hits, seq) end
+            end
+            for _, h in ipairs(hits) do claimed[h] = true end
+            bossHits[bossIndex] = hits
         end
     end
 
     local bossesFilled, totalItems = 0, 0
-    for bossIndex, boss in ipairs(raid.bosses) do
-        local hit
-        -- Try exact match by either English or Russian boss name.
-        for _, candidate in ipairs({ boss.name, boss.nameRU }) do
-            if candidate then
-                hit = byName[candidate:lower()]
-                if hit then break end
+    local function writeItems(bossIndex, ids)
+        if #ids == 0 then return end
+        MRT.db.global.raidLoot[raidID] = MRT.db.global.raidLoot[raidID] or {}
+        MRT.db.global.raidLoot[raidID][bossIndex] = ids
+        bossesFilled = bossesFilled + 1
+        totalItems = totalItems + #ids
+    end
+
+    local function mergeIDs(target, seen, source)
+        for _, id in ipairs(source) do
+            if not seen[id] then
+                seen[id] = true
+                table.insert(target, id)
             end
         end
-        -- Partial match (e.g. our "Gruul" vs AtlasLoot's "Gruul the Dragonkiller").
-        if not hit then
-            for _, candidate in ipairs({ boss.name, boss.nameRU }) do
-                if candidate then
-                    local c = candidate:lower()
-                    for lname, entry in pairs(byName) do
-                        if lname:find(c, 1, true) or c:find(lname, 1, true) then
-                            hit = entry; break
-                        end
-                    end
-                    if hit then break end
+    end
+
+    for bossIndex, hits in pairs(bossHits) do
+        local ids, seen = {}, {}
+        for _, h in ipairs(hits) do
+            mergeIDs(ids, seen, extractItemIDs(h))
+        end
+        writeItems(bossIndex, ids)
+    end
+
+    -- Trash bucket: any AtlasLoot raid entry that no boss claimed (trash mob
+    -- entries, side bosses, random elites) plus items from the dedicated
+    -- TrashContent key if AtlasLoot exposes one.
+    if trashBossIndex then
+        local ids, seen = {}, {}
+        for _, entry in ipairs(allEntries) do
+            if not claimed[entry] then
+                mergeIDs(ids, seen, extractItemIDs(entry))
+            end
+        end
+        local trashContent = findTrashContent(storage, raidID)
+        local trashArray = trashContent and bossArrayOf(trashContent)
+        if trashArray then
+            for _, entry in ipairs(trashArray) do
+                if type(entry) == "table" then
+                    mergeIDs(ids, seen, extractItemIDs(entry))
                 end
             end
         end
-        -- Fallback: same index in AtlasLoot. AtlasLoot and our Data/Raids.lua
-        -- both list bosses in encounter order, so this is usually right.
-        if not hit then hit = sequential[bossIndex] end
-
-        if hit then
-            local ids = extractItemIDs(hit)
-            if #ids > 0 then
-                MRT.db.global.raidLoot[raidID] = MRT.db.global.raidLoot[raidID] or {}
-                MRT.db.global.raidLoot[raidID][bossIndex] = ids
-                bossesFilled = bossesFilled + 1
-                totalItems = totalItems + #ids
-            end
-        end
+        writeItems(trashBossIndex, ids)
     end
 
     if bossesFilled == 0 then

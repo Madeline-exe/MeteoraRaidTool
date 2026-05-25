@@ -34,12 +34,27 @@ local function resolveBossIndex(encName)
     if not raid then return 0, encName end
     local lower = encName:lower()
     for i, b in ipairs(raid.bosses) do
-        if (b.name and b.name:lower() == lower)
+        if b.isTrash then
+            -- Trash bucket is never matched by encounter name.
+        elseif (b.name and b.name:lower() == lower)
            or (b.nameRU and b.nameRU:lower() == lower) then
             return i, b.name
+        elseif b.aliases then
+            for _, alias in ipairs(b.aliases) do
+                if alias:lower() == lower then return i, b.name end
+            end
         end
     end
     return 0, encName
+end
+
+local function trashBossIndex(raidID)
+    local raid = raidID and ns.RaidsByID[raidID]
+    if not raid then return 0 end
+    for i, b in ipairs(raid.bosses) do
+        if b.isTrash then return i end
+    end
+    return 0
 end
 
 local function ensurePoolSlot(raidID, bossIndex)
@@ -113,11 +128,11 @@ function Loot:OnLootOpened()
     local raidID = currentRaidID()
     if not raidID then return end
 
-    -- Trash kills (no ENCOUNTER_START/END) → bossIndex 0 instead of leaking
-    -- onto the previous boss. Anything older than 2 min is treated as trash.
-    local bossIndex, bossName = 0, nil
+    -- Trash kills (no ENCOUNTER_START/END) → trash bucket if the raid has one,
+    -- otherwise bossIndex 0 (unmapped). Anything older than 2 min is trash.
+    local bossIndex, bossName = trashBossIndex(raidID), nil
     if lastEncounter and (time() - lastEncounter.time) < 120 then
-        bossIndex = lastEncounter.bossIndex or 0
+        bossIndex = lastEncounter.bossIndex or bossIndex
         bossName  = lastEncounter.name
     end
 
@@ -216,9 +231,9 @@ function Loot:OnChatLoot(_, msg)
     if seenAwards[key] then return end
     seenAwards[key] = true
 
-    local bossIndex, bossName = 0, nil
+    local bossIndex, bossName = trashBossIndex(raidID), nil
     if lastEncounter and (time() - lastEncounter.time) < 120 then
-        bossIndex = lastEncounter.bossIndex or 0
+        bossIndex = lastEncounter.bossIndex or bossIndex
         bossName  = lastEncounter.name
     end
     self:AddToPool({
