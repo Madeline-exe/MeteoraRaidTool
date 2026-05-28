@@ -92,13 +92,14 @@ local function initViewerDD()
         if IsInRaid() then
             for i = 1, GetNumGroupMembers() do
                 local n = GetRaidRosterInfo(i)
-                if n and not seen[n] then seen[n] = true; addEntry(n) end
+                if n then
+                    local short = Ambiguate(n, "short")
+                    if not seen[short] then seen[short] = true; addEntry(short) end
+                end
             end
         end
-        -- Also surface any names with a wishlist on file
-        for name in pairs(MRT.Wishlist:GetAll()) do
-            if not seen[name] then seen[name] = true; addEntry(name) end
-        end
+        -- Out of raid we have no roster context, so just show self. Leftover
+        -- wishlists from previous raids stay in the DB but aren't surfaced.
     end)
     UIDropDownMenu_SetText(viewerDD, activePlayer())
 end
@@ -184,6 +185,17 @@ end
 local function refresh()
     if not panel then return end
     releaseRows()
+
+    -- Drop a stale "view as someone else" selection if that someone has left
+    -- the raid. Without this the dropdown text keeps their name but the
+    -- dropdown menu won't list them.
+    if viewedPlayer and IsInRaid() then
+        local roster = ns.GetRaidRoster()
+        if not roster[Ambiguate(viewedPlayer, "short")] then
+            viewedPlayer = nil
+        end
+    end
+
     initViewerDD()
 
     local player = activePlayer()

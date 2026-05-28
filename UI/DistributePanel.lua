@@ -335,6 +335,25 @@ local function layoutItemRow(row, entry, width)
 
     local SR = MRT.SoftReserve
     local reservers = SR and SR:GetReservesForItem(entry.itemID) or {}
+    local wishers   = MRT.Wishlist and MRT.Wishlist:WantersOf(entry.itemID) or {}
+
+    -- Hide reserves and wishlist entries of players who aren't actually in
+    -- the raid right now. Outside of raid (e.g. test mode) we don't filter.
+    if IsInRaid() then
+        local roster = ns.GetRaidRoster()
+        if MRT.TestMode and MRT.TestMode:IsOn() then
+            for _, bot in ipairs(MRT.TestMode:GetBots()) do roster[bot] = true end
+        end
+        local fr, fw = {}, {}
+        for _, p in ipairs(reservers) do
+            if roster[Ambiguate(p, "short")] then fr[#fr + 1] = p end
+        end
+        for _, p in ipairs(wishers) do
+            if roster[Ambiguate(p, "short")] then fw[#fw + 1] = p end
+        end
+        reservers, wishers = fr, fw
+    end
+
     local lines = {}
     if #reservers > 0 then
         local marked = {}
@@ -349,7 +368,6 @@ local function layoutItemRow(row, entry, width)
     else
         table.insert(lines, "|cff666666" .. L["award_no_sr"] .. "|r")
     end
-    local wishers = MRT.Wishlist and MRT.Wishlist:WantersOf(entry.itemID) or {}
     if #wishers > 0 then
         table.insert(lines, "|cff66ccff" .. (L["wish_wanters"] or "Wishlist")
             .. ":|r " .. table.concat(wishers, ", "))

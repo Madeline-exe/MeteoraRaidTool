@@ -22,6 +22,27 @@ local EDITROW_HEIGHT  = 32
 local SECTION_GAP     = 4
 local PAD             = 6
 
+-- Min interval between two +/- clicks on the same row. Multi-reserve is
+-- intentional (v1.2.2), but a single mouse double-click was registering as
+-- two separate add/remove ops. 0.35s is comfortably above human double-click
+-- speed but below a deliberate "click two reserves in a row" rhythm.
+local CLICK_DEBOUNCE  = 0.35
+
+-- Per-refresh cache (filled in refresh()): set of short names of current
+-- raid members, plus a flag for whether we should hide non-raid entries.
+local activeRoster, filterByRaid = {}, false
+
+local function filteredReservers(list)
+    if not filterByRaid then return list end
+    local out = {}
+    for _, p in ipairs(list or {}) do
+        if activeRoster[Ambiguate(p, "short")] then
+            out[#out + 1] = p
+        end
+    end
+    return out
+end
+
 -- ============================================================
 -- Pool helpers
 -- ============================================================
@@ -355,15 +376,22 @@ local function layoutItemRow(row, itemID, raidID, bossIndex)
     local atMax = SR:CountForPlayer(me) >= SR:GetMaxPerPlayer()
 
     if canReserve and not atMax then row.plusBtn:Enable() else row.plusBtn:Disable() end
-    row.plusBtn:SetScript("OnClick", function()
+    row.plusBtn:SetScript("OnClick", function(self)
+        local now = GetTime()
+        if (self._lastClick or 0) + CLICK_DEBOUNCE > now then return end
+        self._lastClick = now
         SR:AddReserveForSelf(itemID); UI:Refresh()
     end)
 
     if canReserve and myCount > 0 then row.minusBtn:Enable() else row.minusBtn:Disable() end
-    row.minusBtn:SetScript("OnClick", function()
+    row.minusBtn:SetScript("OnClick", function(self)
+        local now = GetTime()
+        if (self._lastClick or 0) + CLICK_DEBOUNCE > now then return end
+        self._lastClick = now
         SR:RemoveReserveForSelf(itemID); UI:Refresh()
     end)
 
+    reservers = filteredReservers(reservers)
     if #reservers > 0 then
         local marked = {}
         local total = 0
@@ -428,6 +456,12 @@ local function refresh()
     local rl    = MRT:CanLead()
     local raidID = SR and SR:GetCurrentRaid()
     local raid   = raidID and ns.RaidsByID[raidID] or nil
+
+    -- Roster filter: hide reserves of players who already left the raid.
+    -- Outside of a raid we leave the data alone so RL can still see what
+    -- people had reserved before the raid formed up.
+    activeRoster = ns.GetRaidRoster()
+    filterByRaid = IsInRaid()
 
     -- If the player lost RL status while editMode was on, exit edit mode
     -- so they don't see add-rows / X buttons they can't actually use.
@@ -506,7 +540,7 @@ local function refresh()
 
         local totalReserves = 0
         for _, itemID in ipairs(items) do
-            for _, p in ipairs(SR:GetReservesForItem(itemID)) do
+            for _, p in ipairs(filteredReservers(SR:GetReservesForItem(itemID))) do
                 totalReserves = totalReserves + SR:GetReserveCountForItem(p, itemID)
             end
         end

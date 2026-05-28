@@ -251,6 +251,20 @@ function MRT:UnitRaidIndex(unit)
     end
 end
 
+-- Set of short player names currently in the raid group. Empty when not in a
+-- raid. Used by UI panels to hide reserve / wishlist entries belonging to
+-- players who left, so the lists only show people actually present.
+function ns.GetRaidRoster()
+    local set = {}
+    if IsInRaid() then
+        for i = 1, GetNumGroupMembers() do
+            local n = GetRaidRosterInfo(i)
+            if n then set[Ambiguate(n, "short")] = true end
+        end
+    end
+    return set
+end
+
 function MRT:IsCouncilMember(name)
     name = Ambiguate(name, "short")
     if self.db.profile.loot.councilPlayers[name] then return true end
