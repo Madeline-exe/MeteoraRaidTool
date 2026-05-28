@@ -3,7 +3,7 @@
 ## Notes: Guild raid management: soft-reserves, loot distribution with rolls, consumable tracking.
 ## Notes-ruRU: Гильдейский рейд-инструмент: софт-резервы, распределение лута с роллами, трекинг расходников.
 ## Author: Meteora
-## Version: 1.2.4
+## Version: 1.2.5
 ## X-Curse-Project-ID: 1551570
 ## SavedVariables: MeteoraRaidToolDB
 ## SavedVariablesPerCharacter: MeteoraRaidToolCharDB

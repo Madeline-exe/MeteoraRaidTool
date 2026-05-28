@@ -279,6 +279,10 @@ end
 
 function SoftReserve:OnRemoteSet(payload, sender)
     if not payload or not payload.itemID then return end
+    -- AceComm delivers our own RAID broadcast back to us. We already applied
+    -- the change locally in AddReserveForSelf / AddForPlayer, so accepting the
+    -- echo here would double the reserve count on every single click. Skip.
+    if sender and Ambiguate(sender, "short") == UnitName("player") then return end
     if not reservesOpen and not (MRT:IsRaidLeader() or MRT:IsRaidAssistant()) then
         -- Accept anyway; canonical state comes from sync
     end
@@ -291,6 +295,9 @@ end
 
 function SoftReserve:OnRemoteDel(payload, sender)
     if not payload then return end
+    -- Same self-echo guard as OnRemoteSet: RemoveReserveForSelf already
+    -- removed the local entry before broadcasting.
+    if sender and Ambiguate(sender, "short") == UnitName("player") then return end
     local player = payload.player or ambig(sender)
     if payload.itemID then
         local list = reserves[player]
